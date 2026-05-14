@@ -1,12 +1,36 @@
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Methods": "GET, OPTIONS",
+  "Access-Control-Allow-Headers": "Content-Type",
+}
+
+function json(body: unknown, init: ResponseInit = {}): Response {
+  return new Response(JSON.stringify(body), {
+    ...init,
+    headers: {
+      "Content-Type": "application/json",
+      ...corsHeaders,
+      ...(init.headers ?? {}),
+    },
+  })
+}
+
 export default {
-  fetch(request) {
-    const url = new URL(request.url);
+  async fetch(request, _env, _ctx): Promise<Response> {
+    const url = new URL(request.url)
+
+    if (request.method === "OPTIONS" && url.pathname.startsWith("/api/")) {
+      return new Response(null, { status: 204, headers: corsHeaders })
+    }
+
+    if (url.pathname === "/api/health") {
+      return json({ ok: true })
+    }
 
     if (url.pathname.startsWith("/api/")) {
-      return Response.json({
-        name: "Cloudflare",
-      });
+      return json({ error: "Not found" }, { status: 404 })
     }
-		return new Response(null, { status: 404 });
+
+    return new Response(null, { status: 404 })
   },
-} satisfies ExportedHandler<Env>;
+} satisfies ExportedHandler<Env>

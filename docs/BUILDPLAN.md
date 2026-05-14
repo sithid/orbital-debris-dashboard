@@ -3,8 +3,10 @@
 _This file is the phased build plan for the project. It's the bridge between `docs/PRD.md` (what to build) + `docs/DESIGN.md` (what it looks like) and the actual code. Re-run the `build-plan` skill whenever reality has diverged from the plan._
 
 > **Status:** In Progress
-> **Last updated:** 2026-05-13
-> **Current phase:** Phase 0
+> **Last updated:** 2026-05-14
+> **Current phase:** Phase 1 (Phase 0 complete)
+
+> **Architecture note (2026-05-14):** The project was bootstrapped with `npm create cloudflare@latest` using the newer **Workers + Static Assets** model, not Pages Functions. File layout differs from this plan's original wording: API routes live in `worker/index.ts` (a single Worker entrypoint routing `/api/*`), not under `functions/api/*.ts`. Tests use `@cloudflare/vitest-pool-workers` (Vitest 4) with the `cloudflareTest` plugin. Wrangler config is `wrangler.jsonc`. The app lives in the nested directory `orbital-debris-dashboard/` (kept nested for now). Treat the original Pages-Functions file paths in later phases as historical — translate to Worker route handlers inside `worker/`.
 
 ---
 
@@ -38,27 +40,26 @@ That way each phase fits in a focused session — no full-repo loads, no thrashi
 
 **Context to load:** `CLAUDE.md`, `docs/PRD.md` §6, `docs/DESIGN.md` §3.
 
-**Files this phase creates/modifies:**
-- `package.json` — dependencies (React, Vite, TypeScript, Tailwind, Headless UI, Heroicons, Vitest, @cloudflare/vitest-pool-workers)
-- `vite.config.ts` — Vite config with React plugin
-- `tsconfig.json` — strict TypeScript config
-- `wrangler.toml` — Pages + D1 binding declaration
-- `tailwind.config.ts` — Tailwind config with custom tokens from DESIGN §4
-- `src/main.tsx` — React entry point
-- `src/App.tsx` — root component with placeholder routes
-- `functions/api/_middleware.ts` — base API middleware (CORS headers)
-- `vitest.config.ts` — Vitest config with `@cloudflare/vitest-pool-workers`
-- `functions/api/health.ts` — smoke-test endpoint returning `{ ok: true }`
-- `functions/api/health.test.ts` — smoke test
+**Files this phase creates/modifies:** _(actuals, as implemented 2026-05-14 — Workers + Static Assets layout)_
+- `orbital-debris-dashboard/package.json` — adds Tailwind v4, Headless UI, Heroicons, react-router-dom, Vitest, `@cloudflare/vitest-pool-workers`
+- `orbital-debris-dashboard/vite.config.ts` — React + `@tailwindcss/vite` + `@cloudflare/vite-plugin`
+- `orbital-debris-dashboard/wrangler.jsonc` — Worker entrypoint, static assets binding, D1 binding (`DB`, id placeholder)
+- `orbital-debris-dashboard/src/index.css` — Tailwind v4 `@theme` block with DESIGN §4 tokens (no `tailwind.config.ts` — v4 is CSS-first)
+- `orbital-debris-dashboard/src/App.tsx` — `<BrowserRouter>` with placeholder routes for `/`, `/objects`, `/objects/:id`, `/about`
+- `orbital-debris-dashboard/worker/index.ts` — Worker that routes `/api/*` (CORS + `/api/health` → `{ ok: true }`)
+- `orbital-debris-dashboard/vitest.config.ts` — `cloudflareTest({ wrangler: { configPath: './wrangler.jsonc' } })`
+- `orbital-debris-dashboard/worker/index.test.ts` — health + unknown-route tests via `SELF.fetch()` from `cloudflare:test`
 
 **Tests this phase adds:**
 - `health endpoint returns 200 with { ok: true }`
+- `unknown /api/* route returns 404 JSON`
 
 **Done-when:**
-- [ ] `npm test` passes.
-- [ ] `wrangler dev` starts without errors and `GET /api/health` returns `{ ok: true }`.
-- [ ] `wrangler deploy` produces a public Cloudflare Pages URL.
-- [ ] Public URL is committed to `README.md`.
+- [x] `npm test` passes.
+- [x] `npm run typecheck` passes.
+- [x] `npm run build` produces a clean Vite + Worker bundle.
+- [x] `npm run deploy` deployed to https://orbital-debris-dashboard.demonicurges05.workers.dev — live `GET /api/health` returns `{ ok: true }`.
+- [x] Public URL committed to root `README.md`.
 
 **Session budget:** ~1 session.
 
@@ -214,6 +215,8 @@ That way each phase fits in a focused session — no full-repo loads, no thrashi
 | Date | Phase touched | Change | Reason |
 |---|---|---|---|
 | 2026-05-13 | All | Initial plan | PRD + design brief complete; no code exists yet |
+| 2026-05-14 | All | Translate file layout from Pages Functions → Workers + Static Assets | Repo was bootstrapped with `npm create cloudflare@latest`, which now uses the Workers model. Same architectural outcome; only paths differ. |
+| 2026-05-14 | Phase 0 | Use Tailwind v4 CSS-first config (`@theme` in `index.css`) instead of `tailwind.config.ts` | Tailwind v4 dropped the JS config file as the default; CSS-first is the supported path. |
 
 ---
 

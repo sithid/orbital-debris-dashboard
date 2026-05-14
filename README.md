@@ -85,7 +85,7 @@ If you want stricter behavior, swap the Stop hook for a `PostToolUse` hook (runs
 
 _Replace these once you deploy and record:_
 
-🔗 **Live site:** [https://your-project.pages.dev](https://your-project.pages.dev)
+🔗 **Live site:** [https://orbital-debris-dashboard.demonicurges05.workers.dev](https://orbital-debris-dashboard.demonicurges05.workers.dev)
 🎥 **PRD video:** [your-prd-video-link]
 🎥 **Demo video:** [your-demo-video-link]
 

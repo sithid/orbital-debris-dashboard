@@ -16,6 +16,13 @@
 	"upload_source_maps": true,
 	"compatibility_flags": [
 		"nodejs_compat"
+	],
+	"d1_databases": [
+		{
+			"binding": "DB",
+			"database_name": "orbital-debris",
+			"database_id": "80bc22af-cd49-4239-87f1-800d7d099f08"
+		}
 	]
 	/**
 	 * Smart Placement

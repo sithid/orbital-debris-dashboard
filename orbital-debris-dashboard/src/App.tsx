@@ -1,148 +1,71 @@
-import { useState } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from './assets/vite.svg'
-import cloudflareLogo from './assets/cloudflare.svg'
-import heroImg from './assets/hero.png'
-import './App.css'
+  import type { ReactNode } from 'react'
+import { BrowserRouter, Link, Route, Routes, useParams } from 'react-router-dom'
 
-function App() {
-  const [count, setCount] = useState(0)
-  const [name, setName] = useState('unknown')
-
+function Placeholder({ title, phase }: { title: string; phase: string }) {
   return (
-    <>
-      <section id="center">
-        <div className="hero">
-          <img src={heroImg} className="base" width="170" height="179" alt="" />
-          <img src={reactLogo} className="framework" alt="React logo" />
-          <img src={viteLogo} className="vite" alt="Vite logo" />
-        </div>
-        <div>
-          <h1>Get started with Cloudflare</h1>
-          <p>
-            Edit <code>src/App.tsx</code> or <code>worker/index.ts</code> and save to test <code>HMR</code>
-          </p>
-        </div>
-        <ul style={{ display: 'flex', gap: '1rem', listStyle: 'none', padding: 0 }}>
-          <li>
-            <button
-              className="counter"
-              onClick={() => setCount((count) => count + 1)}
-            >
-              Count is {count}
-            </button>
-          </li>
-          <li>
-          <button
-            className="counter"
-            onClick={() => {
-              fetch('/api/')
-                .then((res) => res.json())
-                .then((data) => setName(data.name))
-            }}
-            aria-label='get name'
-          >
-            Name from API is: {name}
-          </button>
-          </li>
-        </ul>
-
-
-      </section>
-
-      <div className="ticks"></div>
-
-      <section id="next-steps">
-        <div id="docs">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#documentation-icon"></use>
-          </svg>
-          <h2>Documentation</h2>
-          <p>Your questions, answered</p>
-          <ul>
-            <li>
-              <a href="https://vite.dev/" target="_blank">
-                <img className="logo" src={viteLogo} alt="" />
-                Explore Vite
-              </a>
-            </li>
-            <li>
-              <a href="https://react.dev/" target="_blank">
-                <img className="button-icon" src={reactLogo} alt="" />
-                Learn more
-              </a>
-            </li>
-            <li>
-              <a href="https://workers.cloudflare.com/" target="_blank">
-                <img className="button-icon" src={cloudflareLogo} alt="" />
-                Workers Docs
-              </a>
-            </li>
-          </ul>
-        </div>
-        <div id="social">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#social-icon"></use>
-          </svg>
-          <h2>Connect with us</h2>
-          <p>Join the Vite community</p>
-          <ul>
-            <li>
-              <a href="https://github.com/vitejs/vite" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#github-icon"></use>
-                </svg>
-                GitHub
-              </a>
-            </li>
-            <li>
-              <a href="https://chat.vite.dev/" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#discord-icon"></use>
-                </svg>
-                Discord
-              </a>
-            </li>
-            <li>
-              <a href="https://x.com/vite_js" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#x-icon"></use>
-                </svg>
-                X.com
-              </a>
-            </li>
-            <li>
-              <a href="https://bsky.app/profile/vite.dev" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#bluesky-icon"></use>
-                </svg>
-                Bluesky
-              </a>
-            </li>
-          </ul>
-        </div>
-      </section>
-
-      <div className="ticks"></div>
-      <section id="spacer"></section>
-    </>
+    <section className="px-8 py-16">
+      <p className="text-xs uppercase tracking-widest text-muted">{phase}</p>
+      <h1 className="mt-2 text-4xl font-semibold text-fg">{title}</h1>
+      <p className="mt-4 text-muted">Placeholder — implemented in a later phase.</p>
+    </section>
   )
 }
 
-export default App
+function ObjectDetailPlaceholder() {
+  const { id } = useParams()
+  return (
+    <section className="px-8 py-16">
+      <p className="text-xs uppercase tracking-widest text-muted">Phase 3</p>
+      <h1 className="mt-2 text-4xl font-semibold text-fg">
+        Object <span className="font-mono text-cyan">{id}</span>
+      </h1>
+      <p className="mt-4 text-muted">Placeholder — implemented in a later phase.</p>
+    </section>
+  )
+}
+
+function Shell({ children }: { children: ReactNode }) {
+  return (
+    <div className="min-h-screen bg-background text-fg">
+      <header className="border-b border-border px-8 py-4">
+        <nav className="flex items-center gap-6 text-sm">
+          <Link to="/" className="font-mono text-cyan">
+            orbital-debris-dashboard
+          </Link>
+          <Link to="/objects" className="text-muted hover:text-fg">
+            Objects
+          </Link>
+          <Link to="/about" className="text-muted hover:text-fg">
+            About
+          </Link>
+        </nav>
+      </header>
+      <main>{children}</main>
+    </div>
+  )
+}
+
+export default function App() {
+  return (
+    <BrowserRouter>
+      <Shell>
+        <Routes>
+          <Route path="/" element={<Placeholder phase="Phase 1" title="Home" />} />
+          <Route
+            path="/objects"
+            element={<Placeholder phase="Phase 2" title="Objects" />}
+          />
+          <Route path="/objects/:id" element={<ObjectDetailPlaceholder />} />
+          <Route
+            path="/about"
+            element={<Placeholder phase="Phase 4" title="About" />}
+          />
+          <Route
+            path="*"
+            element={<Placeholder phase="404" title="Not found" />}
+          />
+        </Routes>
+      </Shell>
+    </BrowserRouter>
+  )
+}
