@@ -1,105 +1,89 @@
 # Product Requirements Document (PRD)
 
-_Fill this out by having a conversation with Claude. Don't try to write it alone on a blank page — that's what the AI is for. Use the `/skills/pm-interview` skill to drive the conversation._
-
-> **Status:** Draft / In Review / Locked
-> **Last updated:** YYYY-MM-DD
-> **Author:** Your name
-> **Stakeholder:** Yourself / Name of the business or person you're building for
+> **Status:** Draft
+> **Last updated:** 2026-05-10
+> **Author:** sithid
+> **Stakeholder:** General public, researchers, space enthusiasts
 
 ---
 
 ## 1. The problem
 
-_In one paragraph, what is the problem? Who has it? What do they do today without your tool? Why is the status quo bad enough that someone would switch?_
-
-**Bad example:** "People need a way to track tasks."
-**Good example:** "Maria, who owns Maria's Tacos, posts weekly specials on Instagram, Facebook, and a chalkboard out front. She updates each one manually on Sunday nights and forgets one about half the time, so customers show up expecting Tuesday's special on Wednesday. She'd pay $10/month to update once and have all three update automatically."
+Researchers, students, and space enthusiasts who want to explore orbital debris data are stuck using raw tables on Space-Track.org or Celestrak. There is no visual, interactive way to find a specific satellite or debris object and understand its full profile — identification, orbit, ownership, and risk — in one place. The maintainer (the developer) has built a merged SATCAT + UCS data pipeline that answers these questions via SQL queries, but there is no UI for anyone else to explore it. The goal is to expose that data through a public dashboard so any researcher can find and explore any object in under 30 seconds.
 
 ---
 
 ## 2. The user
 
-Who specifically will use this? Be concrete. If you can't name a real person (or a realistic archetype), go talk to people until you can.
-
-- **Primary user:**
-- **Their current workflow:**
-- **Their technical comfort:** _(Are they comfortable with a web app? A chat interface? Do they live in their email?)_
-- **What device will they use it on?** _(Phone, desktop, both?)_
+- **Primary user:** Researchers — people actively studying orbital debris, space traffic, or satellite operations who currently use Space-Track.org or Celestrak as their primary data source.
+- **Secondary users:** Students and space enthusiasts who want to explore orbital crowding.
+- **Their current workflow:** Visit Space-Track.org or Celestrak, navigate raw tables, manually look up objects. No visual context, no combined SATCAT + UCS data in one view.
+- **Their technical comfort:** Comfortable with web apps and data tables. Familiar with NORAD IDs and orbital terminology.
+- **What device will they use it on?** Desktop (primary use case is research, not mobile browsing).
 
 ---
 
 ## 3. What success looks like
 
-How will you know this worked? Pick metrics you can actually measure.
-
-- **Must-have outcome:** _e.g. "Maria can update all three channels from one form in under 60 seconds."_
-- **Nice-to-have outcome:** _e.g. "Maria sees how many people clicked through from each channel."_
-- **Not a goal:** _e.g. "This is not a full CRM. We don't care about customer data."_
+- **Must-have outcome:** A researcher can find any satellite or debris object by name or NORAD ID and view its full detail profile in under 30 seconds.
+- **Nice-to-have outcome:** Summary stats on the home page give a researcher immediate situational awareness (total objects, in-orbit count, zombie count) without needing to dig.
+- **Kill condition:** If nobody uses the dashboard after it is shared publicly, the project is not worth continuing.
+- **Not a goal:** This is not a real-time tracking tool. It is not a full analysis platform. It does not replace Space-Track.org.
 
 ---
 
 ## 4. Core user stories
 
-List the things a user does with this product, in order of importance. Start with the single most important one. A good user story is "_As a [user], I want to [do thing] so that [outcome]._"
-
-1. **[Must]** As a _______, I want to _______ so that _______.
-2. **[Must]** ...
-3. **[Should]** ...
-4. **[Could]** ...
-5. **[Won't — this release]** ...
-
-_Use MoSCoW (Must / Should / Could / Won't) to force yourself to prioritize. If everything is a Must, nothing is._
+1. **[Must]** As a researcher, I want to search for a satellite or debris object by name or NORAD ID so that I can quickly find the object I'm investigating.
+2. **[Must]** As a researcher, I want to view a full detail page for any object (identification, orbital parameters, ownership, launch data, risk assessment) so that I have everything I need in one place.
+3. **[Must]** As a researcher, I want to browse a filterable, sortable, paginated table of all objects so that I can explore the dataset without knowing a specific object in advance.
+4. **[Must]** As a visitor, I want to see summary stats on the home page (total objects, in-orbit count, zombie count) so that I immediately understand the scale of the problem.
+5. **[Should]** As a visitor, I want to read an About page that explains the data sources and methodology so that I can trust the data.
+6. **[Won't — this release]** 3D globe visualization of orbital crowding — moved to v2.
+7. **[Won't — this release]** User accounts, data export, real-time updates, alerts.
 
 ---
 
 ## 5. Out of scope
 
-_What are you explicitly NOT building? This is the most important section. Everything not listed as in-scope above is at risk of scope creep — name the things you've been tempted by and are choosing not to build._
-
-- ...
-- ...
+- **3D globe** — the most-wanted feature, explicitly deferred to v2.
+- **User accounts / authentication** — v1 is fully public and read-only.
+- **Data export** — no CSV or API download in v1.
+- **Live data updates** — v1 uses a static snapshot of the SATCAT + UCS merged dataset.
+- **Comparison tools** — no side-by-side object comparison in v1.
+- **Mobile-first design** — desktop is the primary target; mobile should not break but is not optimized.
 
 ---
 
 ## 6. Technical shape
 
-_This is where Claude can help most. Describe the shape, not the implementation. You'll refine this in code._
-
-- **Type of app:** _(Static site? Full-stack web app? API only?)_
-- **Does it need to store data?** _(If yes, what kind — structured records, files, both?)_
-- **Does it need authentication?** _(If yes, who can log in — you, your users, both?)_
-- **Does it need to call external services?** _(e.g. Instagram API, email sending, AI model)_
-- **Who pays for hosting?** _(This matters — Cloudflare's free tier is generous but not infinite.)_
+- **Type of app:** Full-stack web app (React frontend + serverless API + managed database)
+- **Does it need to store data?** Yes — structured records. 68,727 total objects across 6 relational tables (satellites, orbital_data, risk_assessment, launch_events, ownership_operators, ucs_details).
+- **Does it need authentication?** No — fully public, read-only.
+- **Does it need to call external services?** No — all data comes from the local D1 database seeded from the existing pipeline.
+- **Who pays for hosting?** Developer — Cloudflare free tier covers this comfortably for v1 traffic.
 
 ### Proposed Cloudflare stack
 
-_Fill this in after discussing with Claude. Ask Claude to justify each choice._
-
 | Need | CF Product | Why |
 |---|---|---|
-| Hosting the web UI | | |
-| Backend logic | | |
-| Structured data | | |
-| File storage | | |
-| AI features | | |
+| Hosting the web UI | **Pages** | Deploys static React/Vite apps globally; generous free tier; zero config for static assets |
+| Backend API / DB queries | **Pages Functions** | Serverless Workers built into Pages — no separate deployment needed for API routes |
+| Structured data | **D1** | Managed SQLite; existing `orbital_debris.db` can be imported directly; SQL queries for filtering/pagination over 68k rows |
 
 ---
 
 ## 7. Risks and unknowns
 
-What could go wrong or surprise you? Be honest.
-
-- **Biggest risk:**
-- **Things I don't know how to do yet:**
-- **Things I'm assuming but haven't verified:**
+- **Biggest risk:** No validated user demand yet — the developer has not confirmed with a real researcher that this solves their problem. Recommend sharing the PRD with one researcher before writing code.
+- **TypeScript familiarity:** Developer knows JavaScript and OOP but is new to TypeScript specifically. Expect some friction with type annotations early on; not a blocker.
+- **Table performance:** 68k rows requires server-side pagination and filtering via D1 queries. A naive client-side approach will fail. This must be designed correctly from the start.
+- **Things I'm assuming but haven't verified:** That the existing `orbital_debris.db` schema maps cleanly into D1 without migration issues.
 
 ---
 
 ## 8. Milestones
 
-A realistic plan for the next 3 weeks of building.
-
-- **Week 2 end:** _What's deployed and working?_
-- **Week 3 end:** _What's deployed and working?_
-- **Week 4 demo:** _What does the final walkthrough show?_
+- **Week 2 end:** Home page deployed on Cloudflare Pages. Hero/CTA layout on the left, summary stats (total objects, in-orbit count, zombie count) on the right, pulled live from D1. D1 seeded with the full dataset.
+- **Week 3 end:** Objects page live — filterable, sortable, paginated table of all 68k objects. Search by name or NORAD ID working. Clicking a row navigates to the detail page (stub is fine).
+- **Week 4 demo:** Full individual object detail page with all fields (identification, orbital data, ownership, launch info, risk assessment). About page complete. A researcher can find and explore any object in under 30 seconds.

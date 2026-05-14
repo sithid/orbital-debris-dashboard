@@ -99,5 +99,6 @@
       "Write(.dev.vars)"
     ],
     "deny": []
-  }
+  },
+  "model": "opusplan"
 }

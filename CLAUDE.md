@@ -4,9 +4,9 @@ This file tells Claude how to work on this codebase. Keep it accurate — an out
 
 ## About this project
 
-**What it is:** _One sentence. Update this as your project evolves._
+**What it is:** A public, read-only dashboard that lets researchers and space enthusiasts visually explore a merged SATCAT + UCS orbital debris dataset (68,727 objects) — search, filter, and drill into any satellite or debris object in under 30 seconds.
 
-**Who it's for:** _Who is the user? Be specific. "Small business owners" is vague; "the owner of Maria's Tacos who needs to post weekly specials" is useful._
+**Who it's for:** Researchers who currently use Space-Track.org or Celestrak raw tables and want a combined, visual interface to explore orbital crowding and individual object details without writing queries.
 
 **Product requirements:** The full PRD lives in `docs/PRD.md`. Read it before making meaningful architectural or feature decisions.
 
@@ -17,14 +17,11 @@ This file tells Claude how to work on this codebase. Keep it accurate — an out
 ## Tech stack
 
 - **Language:** TypeScript
-- **Runtime:** Cloudflare Workers
-- **Framework:** Hono (if used)
-- **Database:** Cloudflare D1 (if used)
-- **Storage:** Cloudflare R2 (if used)
+- **Frontend:** React + Vite (hosted on Cloudflare Pages)
+- **Backend:** Cloudflare Pages Functions (serverless Workers, co-deployed with Pages)
+- **Database:** Cloudflare D1 (SQLite — seeded from `orbital_debris.db`)
 - **Testing:** Vitest with `@cloudflare/vitest-pool-workers`
-- **Deployment:** Wrangler to Cloudflare
-
-_Remove lines above that don't apply. Add any others you add later._
+- **Deployment:** Wrangler to Cloudflare Pages
 
 ## How to work on this code
 
@@ -75,8 +72,8 @@ This is a learning project. When the human asks "explain this" or "quiz me on th
 
 ## Project-specific rules
 
-_Add rules here as you discover them. Examples:_
-
-- _"All API routes are under `/api/v1/`. Don't add routes outside that prefix."_
-- _"User-facing text is in `src/strings.ts`. Don't hardcode copy in components."_
-- _"We use ULIDs, not UUIDs, for all IDs."_
+- All API routes live under `/api/`. Don't add routes outside that prefix.
+- **Never load all rows client-side.** 68,727 objects require server-side pagination and filtering via D1 queries. Any approach that fetches the full table to the browser is wrong.
+- The source database is at `E:/repos/orbital-debris-assessment/data/clean/orbital_debris.db`. Do not modify it — it is the upstream pipeline output. Seed D1 from it; don't treat D1 as the source of truth for schema decisions.
+- v1 is read-only. No writes, no auth, no user accounts. If a feature requires any of those, it belongs in v2.
+- The 3D globe visualization is explicitly deferred to v2. Do not add CesiumJS, Three.js, or any globe library in v1.
