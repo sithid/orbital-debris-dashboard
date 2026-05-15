@@ -17,11 +17,11 @@ This file tells Claude how to work on this codebase. Keep it accurate — an out
 ## Tech stack
 
 - **Language:** TypeScript
-- **Frontend:** React + Vite (hosted on Cloudflare Pages)
-- **Backend:** Cloudflare Pages Functions (serverless Workers, co-deployed with Pages)
-- **Database:** Cloudflare D1 (SQLite — seeded from `orbital_debris.db`)
+- **Frontend:** React + Vite, served as static assets by the Cloudflare Worker (SPA fallback).
+- **Backend:** A single Cloudflare Worker (`worker/index.ts`) with a `fetch` handler that routes `/api/*` requests. Built with the `@cloudflare/vite-plugin` (Workers + Static Assets), not the older Pages Functions file-routing model.
+- **Database:** Cloudflare D1 (SQLite — seeded from `orbital_debris.db`), bound as `env.DB`.
 - **Testing:** Vitest with `@cloudflare/vitest-pool-workers`
-- **Deployment:** Wrangler to Cloudflare Pages
+- **Deployment:** Wrangler to Cloudflare Workers (`npm run deploy`)
 
 ## How to work on this code
 
@@ -54,8 +54,8 @@ This file tells Claude how to work on this codebase. Keep it accurate — an out
 
 ## Cloudflare-specific notes
 
-- Use `wrangler dev` for local development. It runs the real Workers runtime (miniflare), not Node.
-- Environment bindings (D1, R2, KV, Workers AI) are declared in `wrangler.toml` and accessed via `env.BINDING_NAME`, not `process.env`.
+- Use `npm run dev` (Vite + the Cloudflare plugin) for local development. It runs the real Workers runtime (workerd), not Node.
+- Environment bindings (D1, R2, KV, Workers AI) are declared in `wrangler.jsonc` and accessed via `env.BINDING_NAME`, not `process.env`.
 - For Cloudflare docs, two LLM-optimized entry points exist:
   - `https://developers.cloudflare.com/llms.txt` — the **index**. Lightweight; fetch this first to see what products and pages exist and to find the right deeper link.
   - `https://developers.cloudflare.com/llms-full.txt` — the full corpus. Heavy; only fetch this (or a specific page from the index) when you need real product details.
