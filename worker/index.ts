@@ -1,3 +1,5 @@
+import { getStats } from "./routes/stats"
+
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Methods": "GET, OPTIONS",
@@ -16,7 +18,7 @@ function json(body: unknown, init: ResponseInit = {}): Response {
 }
 
 export default {
-  async fetch(request, _env, _ctx): Promise<Response> {
+  async fetch(request, env, _ctx): Promise<Response> {
     const url = new URL(request.url)
 
     if (request.method === "OPTIONS" && url.pathname.startsWith("/api/")) {
@@ -25,6 +27,10 @@ export default {
 
     if (url.pathname === "/api/health") {
       return json({ ok: true })
+    }
+
+    if (url.pathname === "/api/stats") {
+      return json(await getStats(env))
     }
 
     if (url.pathname.startsWith("/api/")) {

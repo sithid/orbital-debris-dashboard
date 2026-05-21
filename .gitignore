@@ -6,6 +6,9 @@ dist/
 .wrangler/
 worker-configuration.d.ts
 
+# Seed pipeline scratch (e.g. .tmp/seed-data.sql)
+.tmp/
+
 # Cloudflare local secrets — use `wrangler secret put` for production
 .dev.vars
 .dev.vars.*

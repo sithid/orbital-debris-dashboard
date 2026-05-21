@@ -1,5 +1,6 @@
   import type { ReactNode } from 'react'
 import { BrowserRouter, Link, Route, Routes, useParams } from 'react-router-dom'
+import Home from './pages/Home'
 
 function Placeholder({ title, phase }: { title: string; phase: string }) {
   return (
@@ -50,7 +51,7 @@ export default function App() {
     <BrowserRouter>
       <Shell>
         <Routes>
-          <Route path="/" element={<Placeholder phase="Phase 1" title="Home" />} />
+          <Route path="/" element={<Home />} />
           <Route
             path="/objects"
             element={<Placeholder phase="Phase 2" title="Objects" />}

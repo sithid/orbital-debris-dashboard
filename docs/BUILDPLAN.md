@@ -3,8 +3,8 @@
 _This file is the phased build plan for the project. It's the bridge between `docs/PRD.md` (what to build) + `docs/DESIGN.md` (what it looks like) and the actual code. Re-run the `build-plan` skill whenever reality has diverged from the plan._
 
 > **Status:** In Progress
-> **Last updated:** 2026-05-14
-> **Current phase:** Phase 1 (Phase 0 complete)
+> **Last updated:** 2026-05-20
+> **Current phase:** Phase 2 (Phases 0–1 complete)
 
 > **Architecture note (2026-05-14):** The project was bootstrapped with `npm create cloudflare@latest` using the newer **Workers + Static Assets** model, not Pages Functions. File layout differs from this plan's original wording: API routes live in `worker/index.ts` (a single Worker entrypoint routing `/api/*`), not under `functions/api/*.ts`. Tests use `@cloudflare/vitest-pool-workers` (Vitest 4) with the `cloudflareTest` plugin. Wrangler config is `wrangler.jsonc`. The app lives in the nested directory `orbital-debris-dashboard/` (kept nested for now). Treat the original Pages-Functions file paths in later phases as historical — translate to Worker route handlers inside `worker/`.
 
@@ -89,11 +89,11 @@ That way each phase fits in a focused session — no full-repo loads, no thrashi
 - `/api/stats` counts are non-zero after seeding
 
 **Done-when:**
-- [ ] `schema.sql` reflects the upstream DB schema and `wrangler d1 execute` applies it without errors.
-- [ ] `scripts/seed.sh` imports the full 68k-row dataset into local D1.
-- [ ] `GET /api/stats` returns correct counts in `wrangler dev`.
-- [ ] Home page renders three stat cards with live numbers.
-- [ ] `npm test` passes.
+- [x] `schema.sql` reflects the upstream DB schema and `wrangler d1 execute` applies it without errors.
+- [x] `scripts/seed.sh` imports the full 68k-row dataset into local D1.
+- [x] `GET /api/stats` returns correct counts in `wrangler dev`.
+- [x] Home page renders three stat cards with live numbers.
+- [x] `npm test` passes.
 
 **Session budget:** 1–2 sessions.
 
@@ -217,6 +217,8 @@ That way each phase fits in a focused session — no full-repo loads, no thrashi
 | 2026-05-13 | All | Initial plan | PRD + design brief complete; no code exists yet |
 | 2026-05-14 | All | Translate file layout from Pages Functions → Workers + Static Assets | Repo was bootstrapped with `npm create cloudflare@latest`, which now uses the Workers model. Same architectural outcome; only paths differ. |
 | 2026-05-14 | Phase 0 | Use Tailwind v4 CSS-first config (`@theme` in `index.css`) instead of `tailwind.config.ts` | Tailwind v4 dropped the JS config file as the default; CSS-first is the supported path. |
+| 2026-05-20 | Phase 1 | Per-route handler files under `worker/routes/` (e.g. `worker/routes/stats.ts`) instead of inlining handlers in `worker/index.ts` | Keeps the Worker entrypoint thin and makes each route trivially testable in isolation; sets the pattern for Phases 2–3. |
+| 2026-05-20 | Phase 1 | Seed script uses `sqlite3 .dump \| grep ^INSERT` piped to `wrangler d1 execute --file` | Simplest robust path — schema is applied separately from `schema.sql`, so we keep only the INSERT rows from the upstream dump. Imports 69,020 rows in under a minute on local D1. |
 
 ---
 
