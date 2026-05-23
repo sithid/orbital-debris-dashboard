@@ -39,14 +39,14 @@ Researchers, students, and space enthusiasts who want to explore orbital debris 
 3. **[Must]** As a researcher, I want to browse a filterable, sortable, paginated table of all objects so that I can explore the dataset without knowing a specific object in advance.
 4. **[Must]** As a visitor, I want to see summary stats on the home page (total objects, in-orbit count, zombie count) so that I immediately understand the scale of the problem.
 5. **[Should]** As a visitor, I want to read an About page that explains the data sources and methodology so that I can trust the data.
-6. **[Won't — this release]** 3D globe visualization of orbital crowding — moved to v2.
+6. **[Won't — this release, planned for v2 as orbit shells]** 3D globe visualization of orbital crowding — see §5 for the v2 scope decision.
 7. **[Won't — this release]** User accounts, data export, real-time updates, alerts.
 
 ---
 
 ## 5. Out of scope
 
-- **3D globe** — the most-wanted feature, explicitly deferred to v2.
+- **3D globe** — deferred to v2. The v2 scope is **orbit shells**: each object rendered as a tilted ellipse around Earth derived from its `semi_major_axis_km`, `eccentricity`, and `inclination_degrees`. The dataset has no RAAN, argument of perigee, mean anomaly, or epoch, so **real-time positions are not possible without ingesting TLEs from Space-Track/Celestrak** — that's a v3 problem. The v2 globe must label itself as illustrative on the orientation axis (RAAN/argument of perigee will be randomized at render time, not real).
 - **User accounts / authentication** — v1 is fully public and read-only.
 - **Data export** — no CSV or API download in v1.
 - **Live data updates** — v1 uses a static snapshot of the SATCAT + UCS merged dataset.

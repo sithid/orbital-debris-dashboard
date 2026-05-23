@@ -2,9 +2,9 @@
 
 _This file is the phased build plan for the project. It's the bridge between `docs/PRD.md` (what to build) + `docs/DESIGN.md` (what it looks like) and the actual code. Re-run the `build-plan` skill whenever reality has diverged from the plan._
 
-> **Status:** In Progress
+> **Status:** v1 shipped; v2 (3D globe) planning in progress
 > **Last updated:** 2026-05-23
-> **Current phase:** Phase 4 (Phases 0–3 complete)
+> **Current phase:** Phase 5 not started (Phases 0–4 complete; v1 live + smoke-tested)
 
 > **Architecture note (2026-05-14):** The project was bootstrapped with `npm create cloudflare@latest` using the newer **Workers + Static Assets** model, not Pages Functions. File layout differs from this plan's original wording: API routes live in `worker/index.ts` (a single Worker entrypoint routing `/api/*`), not under `functions/api/*.ts`. Tests use `@cloudflare/vitest-pool-workers` (Vitest 4) with the `cloudflareTest` plugin. Wrangler config is `wrangler.jsonc`. The app lives in the nested directory `orbital-debris-dashboard/` (kept nested for now). Treat the original Pages-Functions file paths in later phases as historical — translate to Worker route handlers inside `worker/`.
 
@@ -211,6 +211,83 @@ That way each phase fits in a focused session — no full-repo loads, no thrashi
 
 ---
 
+### Phase 5 — Globe MVP (library + sampled render) — v2
+
+**Goal:** A new `/globe` route renders a 3D Earth with a sampled subset (~1–5k) of orbits drawn as tilted ellipses from each object's SMA, eccentricity, and inclination. Camera controls work; perf is acceptable on a mid-range laptop. The visualization is honest: orientations (RAAN/argument of perigee) are randomized at render time and labeled as illustrative.
+
+**Context to load:** `CLAUDE.md`, `docs/PRD.md` §5 (v2 orbit-shell scope) + §4 story 6, `docs/DESIGN.md` §2 (nav model — adding a 5th route) + §4 (tokens), `schema.sql` (orbital_data fields), `worker/routes/stats.ts` (D1 query pattern).
+
+**Files this phase creates/modifies (expected):**
+- `worker/routes/orbits.ts` — `GET /api/orbits?sample=N&seed=S` returning `{ orbits: [{ norad_id, sma_km, eccentricity, inclination_deg, orbit_class }] }`. Sampling is deterministic given a seed so reloads are stable.
+- `worker/routes/orbits.test.ts` — shape + sample-size + determinism tests.
+- `worker/index.ts` — dispatch `/api/orbits` to the new handler.
+- `src/pages/Globe.tsx` — globe page (full-bleed canvas + a thin overlay panel for stats/legend).
+- `src/components/OrbitGlobe.tsx` — globe.gl wrapper (or three.js scene if globe.gl can't render arbitrary 3D ellipses cleanly).
+- `src/lib/orbitGeometry.ts` — pure function: orbital params → array of 3D points for one ellipse. Tested in isolation.
+- `src/lib/orbitGeometry.test.ts` — unit tests for the geometry function (circle is a circle, eccentric is eccentric, inclined is inclined).
+- `src/components/NavLinks.tsx` — add Globe entry.
+- `src/App.tsx` — add `/globe` route.
+- `package.json` — add `react-globe.gl` (or `three` + `@react-three/fiber` if we go raw).
+- `src/pages/About.tsx` — add a short note: "globe orientations are illustrative; positions are not real-time."
+
+**Tests this phase adds:**
+- `/api/orbits?sample=100` returns 100 orbit records with required fields.
+- `/api/orbits?sample=100&seed=X` returns the same 100 rows on repeat (deterministic sample).
+- `orbitGeometry({ sma, e: 0, i: 0 })` returns points on a circle of radius `sma`.
+- `orbitGeometry({ sma, e: 0.5, i: 0 })` returns an ellipse with the correct apogee/perigee ratio.
+- `orbitGeometry({ sma, e: 0, i: 90 })` returns a polar orbit (z-axis spread).
+
+**Done-when:**
+- [ ] `/api/orbits` returns a sampled, deterministic orbit dataset.
+- [ ] `/globe` route renders an Earth sphere + ~1–5k orbits at >30fps on a mid-range laptop.
+- [ ] Camera can rotate/zoom; orbits look visually plausible (low orbits hug Earth, GEO orbits sit far out, polar orbits are tilted ~90°).
+- [ ] About page labels orientations as illustrative.
+- [ ] `npm test` passes.
+
+**Session budget:** 2 sessions. Library evaluation is the unknown — if globe.gl can't render arbitrary 3D ellipses cleanly, swap to `@react-three/fiber` in the same phase rather than fighting it.
+
+**Risks / unknowns:**
+- Library choice: `react-globe.gl` is the lean default, but its `customLayerData` API may not be ergonomic for arbitrary tilted ellipses. CesiumJS is the safer bet for orbit math but ~10MB bundle. Decide early — within the first hour — to avoid burning a session on the wrong library.
+- Perf with 5k ellipses (each ~64 vertices) = 320k vertices. Should be fine, but instanced rendering may be needed by Phase 6 anyway; consider building for it from day 1.
+- Honesty in labeling. The README + About + globe overlay must all be clear that this is "what orbits exist" not "where things are right now."
+
+---
+
+### Phase 6 — Globe at scale + integration — v2
+
+**Goal:** Globe scales to the full 68k objects (or a clearly justified LOD scheme), filters from the existing app drive what's shown, and clicking an orbit navigates to `/objects/:id`.
+
+**Context to load:** `CLAUDE.md`, `docs/PRD.md` §5 (v2 scope), `docs/DESIGN.md` §6 (responsive strategy), `worker/routes/orbits.ts`, `src/pages/Globe.tsx`, `src/components/OrbitGlobe.tsx`, `src/lib/orbitGeometry.ts`.
+
+**Files this phase creates/modifies (expected):**
+- `worker/routes/orbits.ts` — extend with `objectType`, `orbitClass`, `inOrbit`, `ownerCode` query params (mirror the Objects filter API surface).
+- `src/components/OrbitGlobe.tsx` — switch to instanced rendering (one geometry, 68k instance transforms) or implement LOD (full set when stationary, decimated while orbiting).
+- `src/components/GlobeFilters.tsx` — overlay panel with filter controls; same value semantics as Objects-page filters.
+- `src/hooks/useOrbits.ts` — fetch + cache the orbit dataset; refetch on filter change.
+- `src/components/OrbitGlobe.tsx` — raycaster/picking → `useNavigate('/objects/:id')` on click. Hover state surfaces a small chip with `object_name`.
+- Mobile decision: either (a) render a smaller sample on mobile, (b) show a "globe is desktop-only" banner below `md`, or (c) implement a 2D fallback. Pick one in the phase; don't waffle.
+
+**Tests this phase adds:**
+- `/api/orbits?objectType=PAYLOAD&inOrbit=1` returns only matching rows.
+- `useOrbits` hook returns the filtered dataset and invalidates correctly.
+- Click handler resolves to the correct NORAD ID for a known orbit (unit-testable with a mock picker).
+
+**Done-when:**
+- [ ] Globe renders the full filtered dataset (or a clearly justified LOD scheme — explain in the about page) at >30fps on a mid-range laptop.
+- [ ] Filter changes update the visible orbits without a hard reload.
+- [ ] Clicking an orbit navigates to its detail page.
+- [ ] Mobile behavior matches the chosen strategy (a/b/c above).
+- [ ] `npm test` passes.
+
+**Session budget:** 2 sessions. Scaling and picking are both genuinely hard.
+
+**Risks / unknowns:**
+- Picking 68k orbit lines with a raycaster is expensive. May need a "click goes to nearest hit within N pixels" approximation, or a separate hit-test mesh.
+- If perf forces a library swap (globe.gl → three.js raw or CesiumJS), surface that early in the phase and let it eat a session; do not ship a janky 15fps globe.
+- Filter UI must not duplicate Objects-page state — decide whether it's URL-synced (`/globe?objectType=...`), which is the v1 pattern, or local-only.
+
+---
+
 ## Decision log
 
 | Date | Phase touched | Change | Reason |
@@ -224,6 +301,8 @@ That way each phase fits in a focused session — no full-repo loads, no thrashi
 | 2026-05-22 | Phase 2 | Search treats all-digit input as exact `norad_id =` match and non-numeric input as case-insensitive `UPPER(object_name) LIKE %term%` | NORAD IDs are integers; an integer-typed search needs an exact predicate or it returns nothing. `UPPER(...) LIKE` avoids relying on D1 collation behavior. Sort whitelist (`SORTABLE_COLUMNS`) blocks SQL injection on the `sort` param. |
 | 2026-05-23 | Phase 4 | Sidebar + MobileDrawer share a `NavLinks.tsx` component instead of duplicating the link list | Headless UI `Dialog` for mobile and a fixed `<aside>` for desktop are structurally different, but the nav items, active-state, and a11y semantics should not drift. One source of truth keeps them in sync. |
 | 2026-05-23 | Phase 4 | Skipped React component tests; relied on typecheck + build + manual smoke | Repo's vitest pool is `@cloudflare/vitest-pool-workers` (workerd, no DOM). Adding `@testing-library/react` + `jsdom` is a real dependency decision, not a Phase 4 sub-task. Phases 1-3 set the same precedent. |
+| 2026-05-23 | Phase 5/6 (v2) | v2 globe will render **orbit shells** (tilted ellipses from SMA + e + inclination), not real-time positions | The dataset has no RAAN, argument of perigee, mean anomaly, or epoch — there is no way to compute where any object is right now. Real-time positions would require ingesting TLEs from Space-Track/Celestrak, which is an upstream pipeline change and a daily-refresh story. Defer that to a hypothetical v3; v2 honest-labels orientations as illustrative. |
+| 2026-05-23 | Phase 5 (v2) | Default library: `react-globe.gl`; fall back to `@react-three/fiber` if it can't render arbitrary 3D ellipses cleanly | globe.gl is the smallest viable dep and gives us a working Earth + camera + atmosphere for free. CesiumJS is the safer-for-orbit-math choice but ~10MB and locks us to its scene model; deferred unless forced. |
 
 ---
 
