@@ -104,9 +104,21 @@ export function DataTable<T>({
             <tr
               key={getRowKey(row)}
               onClick={onRowClick ? () => onRowClick(row) : undefined}
+              onKeyDown={
+                onRowClick
+                  ? (e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault()
+                        onRowClick(row)
+                      }
+                    }
+                  : undefined
+              }
+              tabIndex={onRowClick ? 0 : undefined}
+              role={onRowClick ? 'button' : undefined}
               className={
                 onRowClick
-                  ? 'cursor-pointer border-b border-border hover:bg-surface'
+                  ? 'cursor-pointer border-b border-border hover:bg-surface focus:bg-surface focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-cyan'
                   : 'border-b border-border'
               }
             >

@@ -1,15 +1,20 @@
-  import type { ReactNode } from 'react'
-import { BrowserRouter, Link, Route, Routes } from 'react-router-dom'
+import type { ReactNode } from 'react'
+import { BrowserRouter, Route, Routes } from 'react-router-dom'
+import About from './pages/About'
 import Home from './pages/Home'
 import ObjectDetail from './pages/ObjectDetail'
 import Objects from './pages/Objects'
+import { MobileDrawer } from './components/MobileDrawer'
+import { Sidebar } from './components/Sidebar'
 
-function Placeholder({ title, phase }: { title: string; phase: string }) {
+function NotFound() {
   return (
     <section className="px-8 py-16">
-      <p className="text-xs uppercase tracking-widest text-muted">{phase}</p>
-      <h1 className="mt-2 text-4xl font-semibold text-fg">{title}</h1>
-      <p className="mt-4 text-muted">Placeholder — implemented in a later phase.</p>
+      <p className="text-xs uppercase tracking-widest text-muted">404</p>
+      <h1 className="mt-2 text-4xl font-semibold text-fg">Not found</h1>
+      <p className="mt-4 text-muted">
+        The page you're looking for doesn't exist.
+      </p>
     </section>
   )
 }
@@ -17,20 +22,11 @@ function Placeholder({ title, phase }: { title: string; phase: string }) {
 function Shell({ children }: { children: ReactNode }) {
   return (
     <div className="min-h-screen bg-background text-fg">
-      <header className="border-b border-border px-8 py-4">
-        <nav className="flex items-center gap-6 text-sm">
-          <Link to="/" className="font-mono text-cyan">
-            orbital-debris-dashboard
-          </Link>
-          <Link to="/objects" className="text-muted hover:text-fg">
-            Objects
-          </Link>
-          <Link to="/about" className="text-muted hover:text-fg">
-            About
-          </Link>
-        </nav>
-      </header>
-      <main>{children}</main>
+      <Sidebar />
+      <MobileDrawer />
+      <div className="md:pl-60">
+        <main>{children}</main>
+      </div>
     </div>
   )
 }
@@ -43,14 +39,8 @@ export default function App() {
           <Route path="/" element={<Home />} />
           <Route path="/objects" element={<Objects />} />
           <Route path="/objects/:id" element={<ObjectDetail />} />
-          <Route
-            path="/about"
-            element={<Placeholder phase="Phase 4" title="About" />}
-          />
-          <Route
-            path="*"
-            element={<Placeholder phase="404" title="Not found" />}
-          />
+          <Route path="/about" element={<About />} />
+          <Route path="*" element={<NotFound />} />
         </Routes>
       </Shell>
     </BrowserRouter>

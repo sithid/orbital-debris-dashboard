@@ -93,7 +93,7 @@ export default function Objects() {
   return (
     <section className="mx-auto max-w-7xl px-8 py-10">
       <header className="mb-6">
-        <p className="text-xs uppercase tracking-widest text-muted">Phase 2</p>
+        <p className="text-xs uppercase tracking-widest text-muted">Catalog</p>
         <h1 className="mt-2 text-3xl font-semibold text-fg">Objects</h1>
         <p className="mt-2 max-w-prose text-muted">
           Browse every tracked satellite and debris object. Search by name or NORAD ID, filter by

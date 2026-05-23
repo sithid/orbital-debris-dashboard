@@ -3,8 +3,8 @@
 _This file is the phased build plan for the project. It's the bridge between `docs/PRD.md` (what to build) + `docs/DESIGN.md` (what it looks like) and the actual code. Re-run the `build-plan` skill whenever reality has diverged from the plan._
 
 > **Status:** In Progress
-> **Last updated:** 2026-05-22
-> **Current phase:** Phase 3 (Phases 0–2 complete)
+> **Last updated:** 2026-05-23
+> **Current phase:** Phase 4 (Phases 0–3 complete)
 
 > **Architecture note (2026-05-14):** The project was bootstrapped with `npm create cloudflare@latest` using the newer **Workers + Static Assets** model, not Pages Functions. File layout differs from this plan's original wording: API routes live in `worker/index.ts` (a single Worker entrypoint routing `/api/*`), not under `functions/api/*.ts`. Tests use `@cloudflare/vitest-pool-workers` (Vitest 4) with the `cloudflareTest` plugin. Wrangler config is `wrangler.jsonc`. The app lives in the nested directory `orbital-debris-dashboard/` (kept nested for now). Treat the original Pages-Functions file paths in later phases as historical — translate to Worker route handlers inside `worker/`.
 
@@ -162,11 +162,11 @@ That way each phase fits in a focused session — no full-repo loads, no thrashi
 - All expected top-level keys present in response shape
 
 **Done-when:**
-- [ ] `GET /api/objects/:id` returns identification, orbital params, ownership, launch, and risk fields.
-- [ ] Unknown ID returns `404 { error: "Not found" }`.
-- [ ] Detail page renders all field groups with monospace values for numeric/date fields.
-- [ ] Navigating back from detail page returns to the objects table.
-- [ ] `npm test` passes.
+- [x] `GET /api/objects/:id` returns identification, orbital params, ownership, launch, and risk fields.
+- [x] Unknown ID returns `404 { error: "Not found" }`.
+- [x] Detail page renders all field groups with monospace values for numeric/date fields.
+- [x] Navigating back from detail page returns to the objects table.
+- [x] `npm test` passes.
 
 **Session budget:** 1 session.
 
@@ -182,25 +182,26 @@ That way each phase fits in a focused session — no full-repo loads, no thrashi
 
 **Context to load:** `CLAUDE.md`, `docs/PRD.md` §4 story 5, `docs/DESIGN.md` §2 (nav model) + §5 (a11y floor) + §6 (responsive strategy).
 
-**Files this phase creates/modifies:**
-- `src/pages/About.tsx` — static about page (data sources, methodology, project context)
-- `src/components/Sidebar.tsx` — finalized nav with active link state for all 4 routes
-- `src/components/MobileDrawer.tsx` — Headless UI `Dialog` used as mobile nav drawer
-- `src/App.tsx` — wire About route, wrap layout with Sidebar
-- Any a11y fixes surfaced during testing (focus states, contrast, label coverage)
+**Files this phase creates/modifies:** _(actuals, as implemented 2026-05-23)_
+- `src/pages/About.tsx` — static about page (data sources, methodology, scope, project context)
+- `src/components/Sidebar.tsx` — fixed 240px desktop sidebar, hidden below `md`
+- `src/components/MobileDrawer.tsx` — Headless UI `Dialog` + top bar with hamburger, shown only below `md`; auto-closes on route change
+- `src/components/NavLinks.tsx` — shared `NavLink` list used by both Sidebar and MobileDrawer; renders Home/Objects/About with Heroicons + active state
+- `src/App.tsx` — replaced top-nav header with Sidebar + MobileDrawer layout; wired `/about` to `About` page; replaced placeholder route with a proper `NotFound`
+- `src/components/DataTable.tsx` — keyboard activation (Enter/Space) and visible focus ring on clickable rows
+- `src/components/Pagination.tsx` — explicit `focus-visible` outline on prev/next buttons
+- `src/pages/Objects.tsx` — replaced "Phase 2" eyebrow with "Catalog"
 
 **Tests this phase adds:**
-- About page renders without errors
-- Sidebar shows active state on current route
-- Mobile drawer opens and closes (if testable in Vitest; otherwise manual)
+- None — repo has no React component test harness (uses `@cloudflare/vitest-pool-workers` in workerd, not jsdom). Adding RTL + jsdom would be a new dependency; deferred. Manual smoke instead.
 
 **Done-when:**
-- [ ] About page is reachable at `/about` and contains data source information.
-- [ ] Sidebar shows correct active link on all 4 routes.
-- [ ] At `md` breakpoint, sidebar collapses to a hamburger button that opens a drawer.
-- [ ] All inputs and interactive elements have visible focus states.
-- [ ] Color is never the only indicator of status (text label or icon accompanies color).
-- [ ] `npm test` passes.
+- [x] About page is reachable at `/about` and contains data source information.
+- [x] Sidebar shows correct active link on all 4 routes.
+- [x] At `md` breakpoint, sidebar collapses to a hamburger button that opens a drawer.
+- [x] All inputs and interactive elements have visible focus states.
+- [x] Color is never the only indicator of status (text label or icon accompanies color).
+- [x] `npm test` passes (16/16).
 
 **Session budget:** 1 session.
 
@@ -221,6 +222,8 @@ That way each phase fits in a focused session — no full-repo loads, no thrashi
 | 2026-05-20 | Phase 1 | Seed script uses `sqlite3 .dump \| grep ^INSERT` piped to `wrangler d1 execute --file` | Simplest robust path — schema is applied separately from `schema.sql`, so we keep only the INSERT rows from the upstream dump. Imports 69,020 rows in under a minute on local D1. |
 | 2026-05-22 | Phase 2 | `/api/objects` is a single route file (`worker/routes/objects.ts`) using a `LEFT JOIN orbital_data` rather than separate endpoints per filter | Both the orbit-class filter and the orbit-class column need that table; one join handler is simpler than two endpoints and keeps the per-route file pattern from Phase 1. |
 | 2026-05-22 | Phase 2 | Search treats all-digit input as exact `norad_id =` match and non-numeric input as case-insensitive `UPPER(object_name) LIKE %term%` | NORAD IDs are integers; an integer-typed search needs an exact predicate or it returns nothing. `UPPER(...) LIKE` avoids relying on D1 collation behavior. Sort whitelist (`SORTABLE_COLUMNS`) blocks SQL injection on the `sort` param. |
+| 2026-05-23 | Phase 4 | Sidebar + MobileDrawer share a `NavLinks.tsx` component instead of duplicating the link list | Headless UI `Dialog` for mobile and a fixed `<aside>` for desktop are structurally different, but the nav items, active-state, and a11y semantics should not drift. One source of truth keeps them in sync. |
+| 2026-05-23 | Phase 4 | Skipped React component tests; relied on typecheck + build + manual smoke | Repo's vitest pool is `@cloudflare/vitest-pool-workers` (workerd, no DOM). Adding `@testing-library/react` + `jsdom` is a real dependency decision, not a Phase 4 sub-task. Phases 1-3 set the same precedent. |
 
 ---
 
