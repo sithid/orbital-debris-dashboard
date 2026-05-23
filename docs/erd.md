@@ -30,7 +30,7 @@ erDiagram
     }
 
     ORBITAL_DATA {
-        INTEGER norad_id            PK_FK
+        INTEGER norad_id            PK,FK
         TEXT    orbit_class         "indexed"
         TEXT    orbit_type
         REAL    period_minutes
@@ -49,7 +49,7 @@ erDiagram
     }
 
     UCS_DETAILS {
-        INTEGER norad_id         PK_FK
+        INTEGER norad_id         PK,FK
         REAL    lifetime_years
         REAL    sat_age_years
         TEXT    primary_purpose
@@ -59,7 +59,7 @@ erDiagram
     }
 
     RISK_ASSESSMENT {
-        INTEGER norad_id       PK_FK
+        INTEGER norad_id       PK,FK
         REAL    velocity_kms
         REAL    kinetic_joules
         INTEGER is_zombie      "indexed"
