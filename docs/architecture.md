@@ -1,6 +1,6 @@
 # Architecture
 
-_Last regenerated: 2026-05-23 (end of Phase 4). Regenerate at the end of each phase or when the request flow changes — if this no longer matches the code, something drifted and is worth a 10-minute review._
+_Last regenerated: 2026-05-23 (end of Phase 4, post-smoke-test refresh). Regenerate at the end of each phase or when the request flow changes — if this no longer matches the code, something drifted and is worth a 10-minute review._
 
 ## Diagram
 
@@ -8,27 +8,31 @@ _Last regenerated: 2026-05-23 (end of Phase 4). Regenerate at the end of each ph
 flowchart TD
     User[Researcher<br/>browser]
 
-    subgraph SPA[React SPA - dist/client]
+    subgraph SPA[React SPA - BrowserRouter]
       Shell[App.tsx Shell<br/>Sidebar + MobileDrawer]
       RHome[/ Home.tsx/]
       RObjects[/objects Objects.tsx/]
       RDetail[/objects/:id ObjectDetail.tsx/]
       RAbout[/about About.tsx/]
+      R404[* NotFound]
       Shell --> RHome
       Shell --> RObjects
       Shell --> RDetail
       Shell --> RAbout
+      Shell --> R404
     end
 
-    subgraph CF[Cloudflare edge]
-      Worker[Worker entrypoint<br/>worker/index.ts]
-      Assets[(Static assets binding<br/>not_found_handling:<br/>single-page-application)]
+    subgraph CF[Cloudflare edge - single Worker]
+      Worker[worker/index.ts<br/>fetch handler<br/>CORS + OPTIONS preflight]
+      Assets[(ASSETS binding<br/>not_found_handling:<br/>single-page-application)]
       D1[(D1: orbital-debris<br/>6 tables, ~68k rows)]
 
-      subgraph Routes[worker/routes/*]
+      subgraph Routes[worker/routes / inline]
+        Health[/api/health<br/>inline in index.ts]
         Stats[stats.ts<br/>getStats]
-        Objects[objects.ts<br/>getObjects + filters]
-        Object[object.ts<br/>getObject 6-table JOIN]
+        Objects[objects.ts<br/>getObjects<br/>bad sort → 400]
+        Object[object.ts<br/>6-table LEFT JOIN<br/>NaN id → 400<br/>not found → 404]
+        Unknown[unknown /api/* → 404 JSON]
       end
     end
 
@@ -40,9 +44,12 @@ flowchart TD
     RDetail -->|GET /api/objects/:id| Worker
     RAbout -. no API call .- Worker
 
+    Worker --> Health
     Worker --> Stats
     Worker --> Objects
     Worker --> Object
+    Worker --> Unknown
+    Worker -->|non-api path| Assets
     Stats -->|env.DB.prepare| D1
     Objects -->|env.DB.prepare| D1
     Object -->|env.DB.prepare| D1
@@ -52,7 +59,7 @@ flowchart TD
 
 ## How it works
 
-Same backbone as the Phase 3 diagram: one Worker entrypoint, one D1 binding, one static-assets binding with SPA fallback. Phase 4 added an `App.tsx` layout shell (Sidebar on desktop, Headless UI `Dialog` drawer below the `md` breakpoint) that wraps the four route pages. Three of those pages call back to the Worker over `/api/*` for live data; About is fully static and makes no API call. The Worker dispatches `/api/*` paths by `if`/regex into per-route handlers in `worker/routes/*.ts`, each of which queries D1 via `env.DB`. Anything outside `/api/*` falls through to the asset binding, which serves the SPA build and rewrites unknown paths to `index.html` so client-side routes like `/objects/25544` and `/about` resolve into the SPA, which then makes its own `fetch('/api/...')` back to the Worker. Data flows one way: read-only from D1 → JSON → React state.
+One Worker entrypoint, one D1 binding, one static-assets binding with SPA fallback. The Worker's `fetch` handler is a flat dispatcher: it short-circuits `OPTIONS /api/*` for CORS preflight, then matches pathnames into route handlers — `/api/health` inlined, the other three under `worker/routes/*.ts`. Each handler queries D1 via `env.DB.prepare`. Unknown `/api/*` paths return a 404 JSON envelope; anything outside `/api/*` is explicitly delegated to `env.ASSETS.fetch(request)`, which serves the React build and rewrites unknown paths to `index.html` so client-side routes like `/objects/25544` and `/about` resolve into the SPA. The SPA's `App.tsx` shell wraps every route in `Sidebar` + `MobileDrawer` (Headless UI `Dialog` below the `md` breakpoint) and uses a `*` route to catch client-side 404s. Three pages call back to the Worker for live data; About is fully static. Error paths are minimal but real: `objects.ts` raises `ObjectsQueryError` on a bad `sort` whitelist hit (400), and the detail route returns 400 for non-numeric IDs and 404 for missing ones. Data flows one way: read-only from D1 → JSON → React state.
 
 ## Decisions that shaped this
 
