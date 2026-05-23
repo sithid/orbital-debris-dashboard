@@ -1,3 +1,4 @@
+import { getObject } from "./routes/object"
 import { getObjects, ObjectsQueryError } from "./routes/objects"
 import { getStats } from "./routes/stats"
 
@@ -43,6 +44,19 @@ export default {
         }
         throw err
       }
+    }
+
+    const objectMatch = url.pathname.match(/^\/api\/objects\/([^/]+)$/)
+    if (objectMatch) {
+      const id = Number.parseInt(objectMatch[1], 10)
+      if (!Number.isFinite(id) || id < 0) {
+        return json({ error: "Invalid NORAD ID" }, { status: 400 })
+      }
+      const detail = await getObject(env, id)
+      if (!detail) {
+        return json({ error: "Not found" }, { status: 404 })
+      }
+      return json(detail)
     }
 
     if (url.pathname.startsWith("/api/")) {

@@ -1,6 +1,7 @@
   import type { ReactNode } from 'react'
-import { BrowserRouter, Link, Route, Routes, useParams } from 'react-router-dom'
+import { BrowserRouter, Link, Route, Routes } from 'react-router-dom'
 import Home from './pages/Home'
+import ObjectDetail from './pages/ObjectDetail'
 import Objects from './pages/Objects'
 
 function Placeholder({ title, phase }: { title: string; phase: string }) {
@@ -8,19 +9,6 @@ function Placeholder({ title, phase }: { title: string; phase: string }) {
     <section className="px-8 py-16">
       <p className="text-xs uppercase tracking-widest text-muted">{phase}</p>
       <h1 className="mt-2 text-4xl font-semibold text-fg">{title}</h1>
-      <p className="mt-4 text-muted">Placeholder — implemented in a later phase.</p>
-    </section>
-  )
-}
-
-function ObjectDetailPlaceholder() {
-  const { id } = useParams()
-  return (
-    <section className="px-8 py-16">
-      <p className="text-xs uppercase tracking-widest text-muted">Phase 3</p>
-      <h1 className="mt-2 text-4xl font-semibold text-fg">
-        Object <span className="font-mono text-cyan">{id}</span>
-      </h1>
       <p className="mt-4 text-muted">Placeholder — implemented in a later phase.</p>
     </section>
   )
@@ -54,7 +42,7 @@ export default function App() {
         <Routes>
           <Route path="/" element={<Home />} />
           <Route path="/objects" element={<Objects />} />
-          <Route path="/objects/:id" element={<ObjectDetailPlaceholder />} />
+          <Route path="/objects/:id" element={<ObjectDetail />} />
           <Route
             path="/about"
             element={<Placeholder phase="Phase 4" title="About" />}
