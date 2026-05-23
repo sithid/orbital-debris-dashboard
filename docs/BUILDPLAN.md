@@ -3,8 +3,8 @@
 _This file is the phased build plan for the project. It's the bridge between `docs/PRD.md` (what to build) + `docs/DESIGN.md` (what it looks like) and the actual code. Re-run the `build-plan` skill whenever reality has diverged from the plan._
 
 > **Status:** In Progress
-> **Last updated:** 2026-05-20
-> **Current phase:** Phase 2 (Phases 0–1 complete)
+> **Last updated:** 2026-05-22
+> **Current phase:** Phase 3 (Phases 0–2 complete)
 
 > **Architecture note (2026-05-14):** The project was bootstrapped with `npm create cloudflare@latest` using the newer **Workers + Static Assets** model, not Pages Functions. File layout differs from this plan's original wording: API routes live in `worker/index.ts` (a single Worker entrypoint routing `/api/*`), not under `functions/api/*.ts`. Tests use `@cloudflare/vitest-pool-workers` (Vitest 4) with the `cloudflareTest` plugin. Wrangler config is `wrangler.jsonc`. The app lives in the nested directory `orbital-debris-dashboard/` (kept nested for now). Treat the original Pages-Functions file paths in later phases as historical — translate to Worker route handlers inside `worker/`.
 
@@ -127,12 +127,12 @@ That way each phase fits in a focused session — no full-repo loads, no thrashi
 - Filter by `objectType` returns only matching rows
 
 **Done-when:**
-- [ ] `/api/objects` returns paginated results with correct `total`, `page`, `pageSize`, `data` shape.
-- [ ] Table renders 25 rows per page with working next/prev controls.
-- [ ] Searching by name or NORAD ID filters results server-side.
-- [ ] Clicking a column header sorts the table.
-- [ ] Clicking a row navigates to `/objects/:id` (stub page is acceptable).
-- [ ] `npm test` passes.
+- [x] `/api/objects` returns paginated results with correct `total`, `page`, `pageSize`, `data` shape.
+- [x] Table renders 25 rows per page with working next/prev controls.
+- [x] Searching by name or NORAD ID filters results server-side.
+- [x] Clicking a column header sorts the table.
+- [x] Clicking a row navigates to `/objects/:id` (stub page is acceptable).
+- [x] `npm test` passes.
 
 **Session budget:** 2+ sessions (this is the hardest phase).
 
@@ -219,6 +219,8 @@ That way each phase fits in a focused session — no full-repo loads, no thrashi
 | 2026-05-14 | Phase 0 | Use Tailwind v4 CSS-first config (`@theme` in `index.css`) instead of `tailwind.config.ts` | Tailwind v4 dropped the JS config file as the default; CSS-first is the supported path. |
 | 2026-05-20 | Phase 1 | Per-route handler files under `worker/routes/` (e.g. `worker/routes/stats.ts`) instead of inlining handlers in `worker/index.ts` | Keeps the Worker entrypoint thin and makes each route trivially testable in isolation; sets the pattern for Phases 2–3. |
 | 2026-05-20 | Phase 1 | Seed script uses `sqlite3 .dump \| grep ^INSERT` piped to `wrangler d1 execute --file` | Simplest robust path — schema is applied separately from `schema.sql`, so we keep only the INSERT rows from the upstream dump. Imports 69,020 rows in under a minute on local D1. |
+| 2026-05-22 | Phase 2 | `/api/objects` is a single route file (`worker/routes/objects.ts`) using a `LEFT JOIN orbital_data` rather than separate endpoints per filter | Both the orbit-class filter and the orbit-class column need that table; one join handler is simpler than two endpoints and keeps the per-route file pattern from Phase 1. |
+| 2026-05-22 | Phase 2 | Search treats all-digit input as exact `norad_id =` match and non-numeric input as case-insensitive `UPPER(object_name) LIKE %term%` | NORAD IDs are integers; an integer-typed search needs an exact predicate or it returns nothing. `UPPER(...) LIKE` avoids relying on D1 collation behavior. Sort whitelist (`SORTABLE_COLUMNS`) blocks SQL injection on the `sort` param. |
 
 ---
 

@@ -1,3 +1,4 @@
+import { getObjects, ObjectsQueryError } from "./routes/objects"
 import { getStats } from "./routes/stats"
 
 const corsHeaders = {
@@ -31,6 +32,17 @@ export default {
 
     if (url.pathname === "/api/stats") {
       return json(await getStats(env))
+    }
+
+    if (url.pathname === "/api/objects") {
+      try {
+        return json(await getObjects(env, url))
+      } catch (err) {
+        if (err instanceof ObjectsQueryError) {
+          return json({ error: err.message }, { status: 400 })
+        }
+        throw err
+      }
     }
 
     if (url.pathname.startsWith("/api/")) {
