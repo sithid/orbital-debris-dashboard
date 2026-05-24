@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react'
 import { BrowserRouter, Route, Routes } from 'react-router-dom'
 import About from './pages/About'
+import GlobePage from './pages/Globe'
 import Home from './pages/Home'
 import ObjectDetail from './pages/ObjectDetail'
 import Objects from './pages/Objects'
@@ -39,6 +40,7 @@ export default function App() {
           <Route path="/" element={<Home />} />
           <Route path="/objects" element={<Objects />} />
           <Route path="/objects/:id" element={<ObjectDetail />} />
+          <Route path="/globe" element={<GlobePage />} />
           <Route path="/about" element={<About />} />
           <Route path="*" element={<NotFound />} />
         </Routes>

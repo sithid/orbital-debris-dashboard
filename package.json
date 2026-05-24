@@ -19,7 +19,9 @@
     "@heroicons/react": "^2.2.0",
     "react": "^19.2.5",
     "react-dom": "^19.2.5",
-    "react-router-dom": "^7.15.1"
+    "react-globe.gl": "^2.38.0",
+    "react-router-dom": "^7.15.1",
+    "three": "^0.184.0"
   },
   "devDependencies": {
     "@cloudflare/vite-plugin": "^1.37.0",
@@ -29,6 +31,7 @@
     "@types/node": "^24.12.4",
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
+    "@types/three": "^0.184.1",
     "@vitejs/plugin-react": "^6.0.1",
     "eslint": "^10.2.1",
     "eslint-plugin-react-hooks": "^7.1.1",

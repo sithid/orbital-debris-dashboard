@@ -2,6 +2,7 @@ import { NavLink } from 'react-router-dom'
 import {
   HomeIcon,
   TableCellsIcon,
+  GlobeAltIcon,
   InformationCircleIcon,
 } from '@heroicons/react/24/outline'
 import type { ComponentType, SVGProps } from 'react'
@@ -16,6 +17,7 @@ type NavItem = {
 const items: NavItem[] = [
   { to: '/', label: 'Home', Icon: HomeIcon, end: true },
   { to: '/objects', label: 'Objects', Icon: TableCellsIcon },
+  { to: '/globe', label: 'Globe', Icon: GlobeAltIcon },
   { to: '/about', label: 'About', Icon: InformationCircleIcon },
 ]
 

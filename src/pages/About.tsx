@@ -58,10 +58,30 @@ export default function About() {
             <li>Read-only browsing, searching, and filtering of the catalog.</li>
             <li>Per-object detail pages with identification, orbital, ownership, launch, and risk fields.</li>
             <li>
-              <span className="text-muted">Deferred:</span> 3D globe
-              visualization, data export, user accounts, and live updates.
+              <span className="text-muted">Deferred:</span> data export, user
+              accounts, and live updates.
             </li>
           </ul>
+        </section>
+
+        <section>
+          <h2 className="text-xs uppercase tracking-widest text-muted">
+            About the globe
+          </h2>
+          <p className="mt-3 max-w-prose text-fg">
+            The <span className="font-semibold text-cyan">/globe</span> view
+            draws each object as a tilted ellipse derived from its semi-major
+            axis, eccentricity, and inclination. The dataset does{' '}
+            <em>not</em> contain RAAN, argument of perigee, mean anomaly, or
+            epoch, so orbit orientations are{' '}
+            <span className="font-semibold text-warning">randomized at render time</span>,
+            and altitudes above Earth are exaggerated{' '}
+            <span className="font-mono">2.5×</span> so the LEO shell isn't
+            visually crammed against the surface. The globe shows{' '}
+            <em>which orbits exist</em>, not where any object is right now.
+            Real-time positions would require ingesting live TLEs from
+            Space-Track or Celestrak.
+          </p>
         </section>
 
         <section>

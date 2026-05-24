@@ -1,5 +1,6 @@
 import { getObject } from "./routes/object"
 import { getObjects, ObjectsQueryError } from "./routes/objects"
+import { getOrbits } from "./routes/orbits"
 import { getStats } from "./routes/stats"
 
 const corsHeaders = {
@@ -33,6 +34,10 @@ export default {
 
     if (url.pathname === "/api/stats") {
       return json(await getStats(env))
+    }
+
+    if (url.pathname === "/api/orbits") {
+      return json(await getOrbits(env, url))
     }
 
     if (url.pathname === "/api/objects") {
