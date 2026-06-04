@@ -15,7 +15,7 @@ const DESKTOP_SAMPLE_MAX = 40000
 const MOBILE_SAMPLE_MAX = 2000
 // Default to a moderate cap so the first paint isn't maximally cluttered — the
 // user dials up/down from here.
-const DEFAULT_DESKTOP_SAMPLE = 6000
+const DEFAULT_DESKTOP_SAMPLE = 3000
 const DEFAULT_MOBILE_SAMPLE = 1000
 
 // Stable empty reference so the globe doesn't rebuild its instanced mesh on

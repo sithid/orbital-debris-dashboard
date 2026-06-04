@@ -32,8 +32,9 @@ const ALTITUDE_EXAGGERATION = 2.5
 
 // Tube radius in the unit-circle base geometry. The per-orbit transform scales
 // it with the orbit, so every shell reads as a proportionally thin hairline —
-// big GEO rings and tight LEO rings both look like fine lines.
-const TUBE_RADIUS = 0.005
+// big GEO rings and tight LEO rings both look like fine lines. Kept very thin so
+// the dense LEO band reads as a haze rather than a solid scribble.
+const TUBE_RADIUS = 0.0035
 
 function effectiveSmaKm(smaKm: number): number {
   const altitudeKm = Math.max(0, smaKm - EARTH_RADIUS_KM)
@@ -77,7 +78,9 @@ function buildOrbitMesh(orbits: OrbitDatum[]): InstancedMesh {
   const base = new TorusGeometry(1, TUBE_RADIUS, 3, 96)
   const material = new MeshBasicMaterial({
     transparent: true,
-    opacity: 0.5,
+    // Low opacity so overlapping rings accumulate into a density gradient instead
+    // of a solid wall — sparse orbits stay readable, the crowded LEO shell glows.
+    opacity: 0.28,
     depthWrite: false,
   })
   const mesh = new InstancedMesh(base, material, orbits.length)
