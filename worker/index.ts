@@ -1,5 +1,6 @@
 import { getObject } from "./routes/object"
 import { getObjects, ObjectsQueryError } from "./routes/objects"
+import { getOrbitFacets } from "./routes/orbitFacets"
 import { getOrbits } from "./routes/orbits"
 import { getStats } from "./routes/stats"
 
@@ -34,6 +35,10 @@ export default {
 
     if (url.pathname === "/api/stats") {
       return json(await getStats(env))
+    }
+
+    if (url.pathname === "/api/orbits/facets") {
+      return json(await getOrbitFacets(env))
     }
 
     if (url.pathname === "/api/orbits") {

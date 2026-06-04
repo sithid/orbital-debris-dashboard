@@ -8,11 +8,22 @@ beforeAll(async () => {
   await env.DB.exec(
     'CREATE TABLE orbital_data (norad_id INTEGER PRIMARY KEY, orbit_class TEXT, semi_major_axis_km REAL, eccentricity REAL, inclination_degrees REAL);'
   )
+  await env.DB.exec(
+    'CREATE TABLE ownership_operators (owner_code TEXT PRIMARY KEY, owner TEXT, country_operator TEXT);'
+  )
+  await env.DB.batch([
+    env.DB.prepare(
+      "INSERT INTO ownership_operators (owner_code, owner, country_operator) VALUES ('US', 'United States Government', 'USA')"
+    ),
+    env.DB.prepare(
+      "INSERT INTO ownership_operators (owner_code, owner, country_operator) VALUES ('PRC', 'China Aerospace', 'China')"
+    ),
+  ])
 
   // 200 in-orbit objects with usable geometry. Deterministic test fixtures:
   //   even id  -> orbit_class LEO, object_type PAYLOAD
   //   odd  id  -> orbit_class MEO, object_type DEBRIS
-  //   id <= 50 -> owner US, else PRC
+  //   id <= 50 -> owner US (USA), else PRC (China)
   const batch = []
   for (let id = 1; id <= 200; id++) {
     batch.push(
@@ -119,7 +130,7 @@ describe('GET /api/orbits', () => {
 
   it('clamps oversized sample to MAX_SAMPLE', async () => {
     const body = await fetchOrbits('?sample=99999')
-    expect(body.sample).toBe(10000)
+    expect(body.sample).toBe(40000)
   })
 
   it('filters by objectType', async () => {
@@ -160,5 +171,34 @@ describe('GET /api/orbits', () => {
     // Only row 1000 is decayed and has usable geometry
     expect(body.total).toBe(1)
     expect(body.orbits[0].norad_id).toBe(1000)
+  })
+
+  it('treats all-digit search as an exact NORAD id match', async () => {
+    const body = await fetchOrbits('?sample=10000&search=42')
+    expect(body.total).toBe(1)
+    expect(body.orbits[0].norad_id).toBe(42)
+  })
+
+  it('treats non-numeric search as a case-insensitive name substring', async () => {
+    // "OBJECT 15" is a substring of OBJECT 15 and OBJECT 150..159 -> 11 rows.
+    const body = await fetchOrbits('?sample=10000&search=object%2015')
+    expect(body.total).toBe(11)
+    expect(body.orbits.every((o) => o.object_name?.startsWith('OBJECT 15'))).toBe(true)
+  })
+
+  it('filters by operator country (JOIN ownership_operators)', async () => {
+    const usa = await fetchOrbits('?sample=10000&country=USA')
+    expect(usa.total).toBe(50) // owner US == ids 1..50
+    expect(usa.orbits.every((o) => o.norad_id <= 50)).toBe(true)
+
+    const china = await fetchOrbits('?sample=10000&country=China')
+    expect(china.total).toBe(150) // owner PRC == ids 51..200
+  })
+
+  it('combines search and country with AND', async () => {
+    // name "OBJECT 15" (11 rows: 15,150..159) AND country USA (id<=50) -> just 15
+    const body = await fetchOrbits('?sample=10000&search=OBJECT%2015&country=USA')
+    expect(body.total).toBe(1)
+    expect(body.orbits[0].norad_id).toBe(15)
   })
 })

@@ -2,9 +2,9 @@
 
 _This file is the phased build plan for the project. It's the bridge between `docs/PRD.md` (what to build) + `docs/DESIGN.md` (what it looks like) and the actual code. Re-run the `build-plan` skill whenever reality has diverged from the plan._
 
-> **Status:** v1 shipped; v2 (3D globe as orbit shells) complete (Phases 5–6)
+> **Status:** v1 shipped; v2 globe complete through Phase 7 (identity/ownership filters + display cap); Phase 8 (geometric/temporal filters) planned
 > **Last updated:** 2026-06-03
-> **Current phase:** Phase 6 complete (all phases done; v2 globe scales to the full ~34k candidate set with filters + click-through)
+> **Current phase:** Phase 7 complete; Phase 8 (altitude/inclination/launch-year range filters) not started
 
 > **Architecture note (2026-05-14):** The project was bootstrapped with `npm create cloudflare@latest` using the newer **Workers + Static Assets** model, not Pages Functions. File layout differs from this plan's original wording: API routes live in `worker/index.ts` (a single Worker entrypoint routing `/api/*`), not under `functions/api/*.ts`. Tests use `@cloudflare/vitest-pool-workers` (Vitest 4) with the `cloudflareTest` plugin. Wrangler config is `wrangler.jsonc`. The app lives in the nested directory `orbital-debris-dashboard/` (kept nested for now). Treat the original Pages-Functions file paths in later phases as historical — translate to Worker route handlers inside `worker/`.
 
@@ -288,6 +288,42 @@ That way each phase fits in a focused session — no full-repo loads, no thrashi
 
 ---
 
+### Phase 7 — Globe filter expansion (identity, ownership, display cap) — v2
+
+**Goal:** The globe is too cluttered with only type + orbit-class filters. Add the identity/ownership dimensions (name search, owner, operator country) plus a max-orbits display cap so a researcher can isolate what they care about.
+
+**Context to load:** `CLAUDE.md`, `docs/PRD.md` §5, `worker/routes/orbits.ts`, `worker/routes/objects.ts` (search idiom), `src/components/GlobeFilters.tsx`, `src/pages/Globe.tsx`, `src/hooks/useOrbits.ts`, `schema.sql` (`ownership_operators`).
+
+**Files this phase creates/modifies:** _(actuals, 2026-06-03)_
+- `worker/routes/orbits.ts` — `LEFT JOIN ownership_operators`; add `search` (objects.ts idiom: digits → exact NORAD, else `UPPER(object_name) LIKE`) and `country` params. Raised `MAX_SAMPLE` 10000 → 40000 so the slider/desktop can truly request the full set.
+- `worker/routes/orbitFacets.ts` — new `GET /api/orbits/facets` returning distinct `owners [{code,name}]` + `countries`, restricted to the candidate set, for the dropdowns (129 owners / 74 countries — too many to hardcode).
+- `worker/index.ts` — dispatch `/api/orbits/facets` before bare `/api/orbits`.
+- `src/hooks/useOrbits.ts` — `OrbitsQuery` gains `search`/`ownerCode`/`country`; added `useOrbitFacets()` hook.
+- `src/components/GlobeFilters.tsx` — debounced search input, owner + country dropdowns (from facets), max-orbits slider, Reset button.
+- `src/pages/Globe.tsx` — single `GlobeFilterValues` state; effective `sample` clamped per breakpoint (desktop max 40000, mobile 2000); scrollable overlay.
+
+**Tests added:** API `search` (numeric + name) + `country` filters; `/api/orbits/facets` (distinct, sorted, candidate-restricted); `buildOrbitsQuery` new params. 55/55 passing.
+
+**Done-when:**
+- [x] Name search, owner, and country filters narrow the globe; dropdowns list only values present in the candidate set.
+- [x] Max-orbits slider limits the rendered count; "Showing N of M" reflects it.
+- [x] Filters combine (AND) + Reset clears them; no hard reload, camera persists.
+- [x] `npm test`, `npm run typecheck`, `npm run build` pass.
+
+**Session budget:** 1 session.
+
+---
+
+### Phase 8 — Globe geometric & temporal filters — v2 (planned)
+
+**Goal:** Round out the "other criteria" filters with orbital geometry and launch time.
+
+**Expected scope:** dual-handle range sliders in `GlobeFilters` for **altitude band** (perigee/apogee or SMA), **inclination range**, and **launch year** (JOIN `launch_events`). Same API-param + `buildOrbitsQuery` + facets/range-bounds + test pattern as Phase 7. Decide whether range bounds come from `/api/orbits/facets` (min/max) or are hardcoded sensible ranges.
+
+**Not started.**
+
+---
+
 ## Decision log
 
 | Date | Phase touched | Change | Reason |
@@ -306,6 +342,8 @@ That way each phase fits in a focused session — no full-repo loads, no thrashi
 | 2026-06-03 | Phase 6 (v2) | Render all ~34k orbits as one `THREE.InstancedMesh` (thin elliptical-torus base + per-orbit affine matrix), not per-`Line` objects | A Keplerian ellipse is an affine transform of a unit circle, so each orbit is one instance matrix and the whole set is a single draw call — Phase 5's per-`Line` approach was ~34k draw calls. The perifocal rotation matrix is shared with `orbitGeometry` via a new pure `orbitRotation` helper (one source of truth). |
 | 2026-06-03 | Phase 6 (v2) | Pick orbits with our own `THREE.Raycaster` reading `instanceId`, not globe.gl's `onCustomLayer*` events | globe.gl's custom-layer events report the datum, not the `instanceId`, so they can't distinguish individual orbits inside one InstancedMesh. We raycast the mesh on the globe's canvas/camera (hover throttled via rAF). `instanceId → norad_id` is a pure, unit-tested index lookup (`orbitPicking.ts`). |
 | 2026-06-03 | Phase 6 (v2) | Mobile (`< md`) renders a reduced 1k sample, not a desktop-only banner or 2D fallback | Keeps the globe usable on phones without asking a mobile GPU to draw ~34k instances. Matches PRD §5 "mobile should not break but is not optimized." Added `object_name` to `/api/orbits` for the hover chip; filter state is local (not URL-synced), mirroring the Objects page. |
+| 2026-06-03 | Phase 7 (v2) | Owner/country dropdowns are populated from a new `/api/orbits/facets` endpoint, not hardcoded | 129 distinct owners + 74 countries is far too many to hardcode (the Objects page hardcodes only ~5 types/classes). Facets are restricted to the candidate set so a dropdown never offers a value that returns nothing. Non-cascading (owner choice doesn't shrink the country list) to keep it simple. |
+| 2026-06-03 | Phase 7 (v2) | Expose the existing `sample` param as a "max orbits" slider; raise `MAX_SAMPLE` 10000 → 40000 | Phase 6 claimed the globe rendered the full ~34k but the server silently clamped to 10k — raising the cap makes that true and gives the declutter slider real range. The deterministic sample means lowering the cap shows a stable representative subset. `owner_code` and "owner" are one dimension (code vs. display name) — a single dropdown filtering by `ownerCode`. |
 
 ---
 

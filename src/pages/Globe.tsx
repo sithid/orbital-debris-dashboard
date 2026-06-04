@@ -1,25 +1,29 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { OrbitGlobe } from '../components/OrbitGlobe'
-import { GlobeFilters } from '../components/GlobeFilters'
-import { useOrbits, type OrbitDatum, type OrbitsQuery } from '../hooks/useOrbits'
+import { GlobeFilters, type GlobeFilterValues } from '../components/GlobeFilters'
+import { useOrbits, useOrbitFacets, type OrbitDatum } from '../hooks/useOrbits'
 
-// Render the full candidate set on desktop; a small sample on narrow screens so
-// a phone GPU isn't asked to draw ~34k instances. 40000 is above the ~34k total,
-// so on desktop it is effectively "all".
-const DESKTOP_SAMPLE = 40000
-const MOBILE_SAMPLE = 1000
 const SEED = 1
+// Slider ceilings: desktop can request the whole catalog; small screens are held
+// to a perf-safe cap so a phone GPU isn't asked to draw tens of thousands.
+const DESKTOP_SAMPLE_MAX = 40000
+const MOBILE_SAMPLE_MAX = 2000
+// Default to a moderate cap so the first paint isn't maximally cluttered — the
+// user dials up/down from here.
+const DEFAULT_DESKTOP_SAMPLE = 6000
+const DEFAULT_MOBILE_SAMPLE = 1000
 
 // Stable empty reference so the globe doesn't rebuild its instanced mesh on
 // every render while a (re)fetch is in flight.
 const NO_ORBITS: OrbitDatum[] = []
 
+const isDesktopNow = (): boolean =>
+  typeof window !== 'undefined' && window.matchMedia('(min-width: 768px)').matches
+
 // True at or above the md breakpoint (768px) — the same boundary the sidebar uses.
 function useIsDesktop(): boolean {
-  const [isDesktop, setIsDesktop] = useState(
-    () => typeof window !== 'undefined' && window.matchMedia('(min-width: 768px)').matches
-  )
+  const [isDesktop, setIsDesktop] = useState(isDesktopNow)
   useEffect(() => {
     const mql = window.matchMedia('(min-width: 768px)')
     const onChange = () => setIsDesktop(mql.matches)
@@ -29,20 +33,36 @@ function useIsDesktop(): boolean {
   return isDesktop
 }
 
+const EMPTY_FILTERS = {
+  search: '',
+  objectType: '',
+  orbitClass: '',
+  ownerCode: '',
+  country: '',
+} as const
+
 export default function GlobePage() {
   const navigate = useNavigate()
   const isDesktop = useIsDesktop()
+  const facets = useOrbitFacets()
   const [hovered, setHovered] = useState<OrbitDatum | null>(null)
-  const [query, setQuery] = useState<Omit<OrbitsQuery, 'sample'>>({
-    seed: SEED,
-    objectType: '',
-    orbitClass: '',
-  })
+  const [filters, setFilters] = useState<GlobeFilterValues>(() => ({
+    ...EMPTY_FILTERS,
+    sample: isDesktopNow() ? DEFAULT_DESKTOP_SAMPLE : DEFAULT_MOBILE_SAMPLE,
+  }))
+
+  const sampleMax = isDesktop ? DESKTOP_SAMPLE_MAX : MOBILE_SAMPLE_MAX
 
   const state = useOrbits({
-    ...query,
-    sample: isDesktop ? DESKTOP_SAMPLE : MOBILE_SAMPLE,
+    ...filters,
+    seed: SEED,
+    // Clamp the effective request so resizing to mobile can't fetch a huge set.
+    sample: Math.min(filters.sample, sampleMax),
   })
+
+  const update = (patch: Partial<GlobeFilterValues>): void =>
+    setFilters((prev) => ({ ...prev, ...patch }))
+  const reset = (): void => setFilters((prev) => ({ ...prev, ...EMPTY_FILTERS }))
 
   const ready = state.status === 'ready' ? state.data : null
 
@@ -56,7 +76,7 @@ export default function GlobePage() {
         onSelect={(o) => navigate(`/objects/${o.norad_id}`)}
       />
 
-      <div className="pointer-events-none absolute left-6 top-6 z-10 max-w-sm space-y-3">
+      <div className="pointer-events-none absolute left-6 top-6 z-10 max-h-[calc(100vh-3rem)] w-72 max-w-[calc(100vw-3rem)] space-y-3 overflow-y-auto pr-1">
         <div className="pointer-events-auto rounded-lg border border-border bg-surface/85 p-4 shadow-lg backdrop-blur">
           <p className="text-xs uppercase tracking-widest text-muted">Globe</p>
           <h1 className="mt-1 text-xl font-semibold text-fg">Orbit shells</h1>
@@ -85,10 +105,11 @@ export default function GlobePage() {
         </div>
 
         <GlobeFilters
-          objectType={query.objectType}
-          orbitClass={query.orbitClass}
-          onObjectTypeChange={(v) => setQuery((q) => ({ ...q, objectType: v }))}
-          onOrbitClassChange={(v) => setQuery((q) => ({ ...q, orbitClass: v }))}
+          values={filters}
+          facets={facets}
+          sampleMax={sampleMax}
+          onChange={update}
+          onReset={reset}
         />
 
         <div className="pointer-events-auto rounded-lg border border-border bg-surface/85 p-4 shadow-lg backdrop-blur">

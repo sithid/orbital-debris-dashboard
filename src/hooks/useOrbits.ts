@@ -19,8 +19,11 @@ export type OrbitsResponse = {
 export type OrbitsQuery = {
   sample: number
   seed: number
+  search: string
   objectType: string
   orbitClass: string
+  ownerCode: string
+  country: string
 }
 
 export type OrbitsState =
@@ -32,8 +35,11 @@ export function buildOrbitsQuery(q: OrbitsQuery): string {
   const params = new URLSearchParams()
   params.set('sample', String(q.sample))
   params.set('seed', String(q.seed))
+  if (q.search) params.set('search', q.search)
   if (q.objectType) params.set('objectType', q.objectType)
   if (q.orbitClass) params.set('orbitClass', q.orbitClass)
+  if (q.ownerCode) params.set('ownerCode', q.ownerCode)
+  if (q.country) params.set('country', q.country)
   return params.toString()
 }
 
@@ -61,4 +67,35 @@ export function useOrbits(query: OrbitsQuery): OrbitsState {
   }, [qs])
 
   return state
+}
+
+export type OrbitOwnerFacet = { code: string; name: string }
+export type OrbitFacets = { owners: OrbitOwnerFacet[]; countries: string[] }
+
+const EMPTY_FACETS: OrbitFacets = { owners: [], countries: [] }
+
+/**
+ * Fetch the owner/country dropdown options once. These are high-cardinality
+ * (129 owners, 74 countries) so they come from the server's /api/orbits/facets
+ * endpoint rather than being hardcoded. Failure degrades gracefully to empty
+ * lists — the dropdowns just show "All".
+ */
+export function useOrbitFacets(): OrbitFacets {
+  const [facets, setFacets] = useState<OrbitFacets>(EMPTY_FACETS)
+
+  useEffect(() => {
+    const controller = new AbortController()
+    fetch('/api/orbits/facets', { signal: controller.signal })
+      .then(async (res) => {
+        if (!res.ok) throw new Error(`HTTP ${res.status}`)
+        setFacets((await res.json()) as OrbitFacets)
+      })
+      .catch((err: unknown) => {
+        if (err instanceof DOMException && err.name === 'AbortError') return
+        setFacets(EMPTY_FACETS)
+      })
+    return () => controller.abort()
+  }, [])
+
+  return facets
 }

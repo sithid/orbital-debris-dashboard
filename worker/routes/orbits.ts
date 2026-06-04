@@ -15,7 +15,9 @@ export interface OrbitsResponse {
 }
 
 const DEFAULT_SAMPLE = 1000
-const MAX_SAMPLE = 10000
+// Above the ~34k candidate total, so the globe can request "all" while still
+// guarding against absurd values. One InstancedMesh draw call absorbs this.
+const MAX_SAMPLE = 40000
 
 function parsePositiveInt(value: string | null, fallback: number, max?: number): number {
   if (!value) return fallback
@@ -71,12 +73,37 @@ export async function getOrbits(env: Env, url: URL): Promise<OrbitsResponse> {
     bindings.push(ownerCode)
   }
 
+  // Name/NORAD search — same idiom as worker/routes/objects.ts: all-digit input
+  // is an exact NORAD id; anything else is a case-insensitive name substring.
+  const search = params.get('search')?.trim()
+  if (search) {
+    if (/^\d+$/.test(search)) {
+      where.push('s.norad_id = ?')
+      bindings.push(Number.parseInt(search, 10))
+    } else {
+      where.push('UPPER(s.object_name) LIKE ?')
+      bindings.push(`%${search.toUpperCase()}%`)
+    }
+  }
+
+  const country = params.get('country')
+  if (country) {
+    where.push('op.country_operator = ?')
+    bindings.push(country)
+  }
+
   const whereClause = where.join(' AND ')
+
+  // ownership_operators is LEFT-joined so the country filter (and future
+  // owner-name needs) resolve without dropping objects that lack an operator row.
+  const fromClause = `
+    FROM satellites s
+    JOIN orbital_data o ON o.norad_id = s.norad_id
+    LEFT JOIN ownership_operators op ON op.owner_code = s.owner_code`
 
   const totalRow = await env.DB.prepare(
     `SELECT COUNT(*) AS total
-     FROM satellites s
-     JOIN orbital_data o ON o.norad_id = s.norad_id
+     ${fromClause}
      WHERE ${whereClause}`
   )
     .bind(...bindings)
@@ -99,8 +126,7 @@ export async function getOrbits(env: Env, url: URL): Promise<OrbitsResponse> {
        o.eccentricity        AS eccentricity,
        o.inclination_degrees AS inclination_deg,
        o.orbit_class         AS orbit_class
-     FROM satellites s
-     JOIN orbital_data o ON o.norad_id = s.norad_id
+     ${fromClause}
      WHERE ${whereClause}
      ORDER BY (s.norad_id * ?) % 2147483647, s.norad_id
      LIMIT ?`
