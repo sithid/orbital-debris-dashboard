@@ -55,3 +55,16 @@ describe('GET /api/visitors', () => {
     expect(body).toMatchObject({ daily: expect.any(Number), allTime: expect.any(Number) })
   })
 })
+
+describe('GET /api/visit', () => {
+  it('records the caller and is reflected in the counts', async () => {
+    const before = await getVisitorCounts(env)
+    const res = await SELF.fetch('https://example.com/api/visit', {
+      headers: { 'CF-Connecting-IP': '203.0.113.7' },
+    })
+    expect(res.status).toBe(200)
+    const after = await getVisitorCounts(env)
+    expect(after.allTime).toBe(before.allTime + 1)
+    expect(after.daily).toBe(before.daily + 1)
+  })
+})
