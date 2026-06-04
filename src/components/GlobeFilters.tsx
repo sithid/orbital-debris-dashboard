@@ -1,111 +1,37 @@
 import { useEffect, useRef, useState } from 'react'
-import type { OrbitFacets, RangeBound } from '../hooks/useOrbits'
+import type { CommonFilters } from '../lib/filterParams'
+import type { Facets } from '../hooks/useFacets'
+import { fieldClass, labelClass } from './filters/fieldStyles'
+import { FacetSelect } from './filters/FacetSelect'
+import { RangeInputs } from './filters/RangeInputs'
+import { TristateSelect } from './filters/TristateSelect'
 
 // Type / orbit-class option lists mirror src/pages/Objects.tsx. Owner and
 // country are high-cardinality, so they come from the facets endpoint instead.
 const OBJECT_TYPES = ['PAYLOAD', 'DEBRIS', 'ROCKET BODY', 'UNKNOWN', 'TBA']
 const ORBIT_CLASSES = ['LEO', 'MEO', 'GEO', 'HEO', 'UNKNOWN']
 
-const fieldClass =
-  'w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm text-fg focus:border-cyan focus:outline-none focus:ring-2 focus:ring-cyan/40'
-const labelClass = 'block text-xs uppercase tracking-widest text-muted'
+const ZOMBIE_OPTIONS = [
+  { value: '', label: 'All objects' },
+  { value: '1', label: 'Zombies only' },
+  { value: '0', label: 'Exclude zombies' },
+]
+// The globe defaults to in-orbit; "All" needs an explicit sentinel because the
+// orbits API treats an absent inOrbit as "in-orbit only".
+const IN_ORBIT_OPTIONS = [
+  { value: '1', label: 'In orbit' },
+  { value: '0', label: 'Decayed' },
+  { value: 'all', label: 'All (incl. decayed)' },
+]
 
-export type GlobeFilterValues = {
-  search: string
-  objectType: string
-  orbitClass: string
-  ownerCode: string
-  country: string
-  sample: number
-  minAltKm: string
-  maxAltKm: string
-  minInc: string
-  maxInc: string
-  minYear: string
-  maxYear: string
-}
+export type GlobeFilterValues = CommonFilters & { sample: number }
 
 type Props = {
   values: GlobeFilterValues
-  facets: OrbitFacets
+  facets: Facets
   sampleMax: number
   onChange: (patch: Partial<GlobeFilterValues>) => void
   onReset: () => void
-}
-
-// A labelled min/max number-input pair. Holds local state and debounces upward
-// so typing doesn't refetch on every keystroke; syncs back from props on Reset.
-function RangeInputs({
-  label,
-  unit,
-  min,
-  max,
-  placeholder,
-  step,
-  onCommit,
-}: {
-  label: string
-  unit?: string
-  min: string
-  max: string
-  placeholder: RangeBound
-  step?: number
-  onCommit: (next: { min: string; max: string }) => void
-}) {
-  const [localMin, setLocalMin] = useState(min)
-  const [localMax, setLocalMax] = useState(max)
-  const onCommitRef = useRef(onCommit)
-  useEffect(() => {
-    onCommitRef.current = onCommit
-  })
-
-  useEffect(() => setLocalMin(min), [min])
-  useEffect(() => setLocalMax(max), [max])
-
-  useEffect(() => {
-    if (localMin === min && localMax === max) return
-    const t = setTimeout(
-      () => onCommitRef.current({ min: localMin.trim(), max: localMax.trim() }),
-      250
-    )
-    return () => clearTimeout(t)
-  }, [localMin, localMax, min, max])
-
-  const inputClass = `${fieldClass} px-2 [appearance:textfield]`
-
-  return (
-    <div>
-      <span className={labelClass}>
-        {label}
-        {unit ? <span className="lowercase"> ({unit})</span> : null}
-      </span>
-      <div className="mt-1 flex items-center gap-2">
-        <input
-          type="number"
-          inputMode="numeric"
-          step={step}
-          value={localMin}
-          onChange={(e) => setLocalMin(e.target.value)}
-          placeholder={`${placeholder.min}`}
-          className={inputClass}
-          aria-label={`Minimum ${label}`}
-        />
-        <span aria-hidden className="text-muted">
-          –
-        </span>
-        <input
-          type="number"
-          inputMode="numeric"
-          step={step}
-          value={localMax}
-          onChange={(e) => setLocalMax(e.target.value)}
-          placeholder={`${placeholder.max}`}
-          className={inputClass}
-          aria-label={`Maximum ${label}`}
-        />
-      </div>
-    </div>
-  )
 }
 
 export function GlobeFilters({ values, facets, sampleMax, onChange, onReset }: Props) {
@@ -116,18 +42,17 @@ export function GlobeFilters({ values, facets, sampleMax, onChange, onReset }: P
     onChangeRef.current = onChange
   })
 
-  // Keep the input in sync when search is cleared/changed externally (e.g. Reset).
   useEffect(() => {
     setSearchInput(values.search)
   }, [values.search])
 
-  // Push the debounced value up 300ms after typing stops.
   useEffect(() => {
     if (searchInput === values.search) return
     const t = setTimeout(() => onChangeRef.current({ search: searchInput.trim() }), 300)
     return () => clearTimeout(t)
   }, [searchInput, values.search])
 
+  // in_orbit defaults to '1' on the globe, so it only counts as "active" when changed.
   const hasActiveFilters =
     values.search !== '' ||
     values.objectType !== '' ||
@@ -139,7 +64,9 @@ export function GlobeFilters({ values, facets, sampleMax, onChange, onReset }: P
     values.minInc !== '' ||
     values.maxInc !== '' ||
     values.minYear !== '' ||
-    values.maxYear !== ''
+    values.maxYear !== '' ||
+    values.isZombie !== '' ||
+    values.inOrbit !== '1'
 
   return (
     <div className="pointer-events-auto rounded-lg border border-border bg-surface/85 p-4 shadow-lg backdrop-blur">
@@ -169,73 +96,34 @@ export function GlobeFilters({ values, facets, sampleMax, onChange, onReset }: P
           />
         </label>
 
-        <label className="block">
-          <span className="sr-only">Object type</span>
-          <select
-            value={values.objectType}
-            onChange={(e) => onChange({ objectType: e.target.value })}
-            className={fieldClass}
-            aria-label="Filter by object type"
-          >
-            <option value="">All types</option>
-            {OBJECT_TYPES.map((t) => (
-              <option key={t} value={t}>
-                {t}
-              </option>
-            ))}
-          </select>
-        </label>
-
-        <label className="block">
-          <span className="sr-only">Orbit class</span>
-          <select
-            value={values.orbitClass}
-            onChange={(e) => onChange({ orbitClass: e.target.value })}
-            className={fieldClass}
-            aria-label="Filter by orbit class"
-          >
-            <option value="">All orbits</option>
-            {ORBIT_CLASSES.map((o) => (
-              <option key={o} value={o}>
-                {o}
-              </option>
-            ))}
-          </select>
-        </label>
-
-        <label className="block">
-          <span className="sr-only">Owner / operator</span>
-          <select
-            value={values.ownerCode}
-            onChange={(e) => onChange({ ownerCode: e.target.value })}
-            className={fieldClass}
-            aria-label="Filter by owner or operator"
-          >
-            <option value="">All owners</option>
-            {facets.owners.map((o) => (
-              <option key={o.code} value={o.code}>
-                {o.name}
-              </option>
-            ))}
-          </select>
-        </label>
-
-        <label className="block">
-          <span className="sr-only">Operator country</span>
-          <select
-            value={values.country}
-            onChange={(e) => onChange({ country: e.target.value })}
-            className={fieldClass}
-            aria-label="Filter by operator country"
-          >
-            <option value="">All countries</option>
-            {facets.countries.map((c) => (
-              <option key={c} value={c}>
-                {c}
-              </option>
-            ))}
-          </select>
-        </label>
+        <FacetSelect
+          label="Filter by object type"
+          allLabel="All types"
+          value={values.objectType}
+          options={OBJECT_TYPES.map((t) => ({ value: t, label: t }))}
+          onChange={(v) => onChange({ objectType: v })}
+        />
+        <FacetSelect
+          label="Filter by orbit class"
+          allLabel="All orbits"
+          value={values.orbitClass}
+          options={ORBIT_CLASSES.map((o) => ({ value: o, label: o }))}
+          onChange={(v) => onChange({ orbitClass: v })}
+        />
+        <FacetSelect
+          label="Filter by owner or operator"
+          allLabel="All owners"
+          value={values.ownerCode}
+          options={facets.owners.map((o) => ({ value: o.code, label: o.name }))}
+          onChange={(v) => onChange({ ownerCode: v })}
+        />
+        <FacetSelect
+          label="Filter by operator country"
+          allLabel="All countries"
+          value={values.country}
+          options={facets.countries.map((c) => ({ value: c, label: c }))}
+          onChange={(v) => onChange({ country: v })}
+        />
 
         <RangeInputs
           label="Altitude"
@@ -245,7 +133,6 @@ export function GlobeFilters({ values, facets, sampleMax, onChange, onReset }: P
           placeholder={facets.bounds.altitudeKm}
           onCommit={({ min, max }) => onChange({ minAltKm: min, maxAltKm: max })}
         />
-
         <RangeInputs
           label="Inclination"
           unit="°"
@@ -255,7 +142,6 @@ export function GlobeFilters({ values, facets, sampleMax, onChange, onReset }: P
           placeholder={facets.bounds.inclinationDeg}
           onCommit={({ min, max }) => onChange({ minInc: min, maxInc: max })}
         />
-
         <RangeInputs
           label="Launch year"
           step={1}
@@ -263,6 +149,19 @@ export function GlobeFilters({ values, facets, sampleMax, onChange, onReset }: P
           max={values.maxYear}
           placeholder={facets.bounds.launchYear}
           onCommit={({ min, max }) => onChange({ minYear: min, maxYear: max })}
+        />
+
+        <TristateSelect
+          label="Status"
+          value={values.inOrbit}
+          options={IN_ORBIT_OPTIONS}
+          onChange={(v) => onChange({ inOrbit: v })}
+        />
+        <TristateSelect
+          label="Zombie"
+          value={values.isZombie}
+          options={ZOMBIE_OPTIONS}
+          onChange={(v) => onChange({ isZombie: v })}
         />
 
         <label className="block">

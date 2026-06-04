@@ -2,7 +2,9 @@ import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { OrbitGlobe } from '../components/OrbitGlobe'
 import { GlobeFilters, type GlobeFilterValues } from '../components/GlobeFilters'
-import { useOrbits, useOrbitFacets, type OrbitDatum } from '../hooks/useOrbits'
+import { useOrbits, type OrbitDatum } from '../hooks/useOrbits'
+import { useFacets } from '../hooks/useFacets'
+import { EMPTY_COMMON_FILTERS } from '../lib/filterParams'
 
 const SEED = 1
 // Slider ceilings: desktop can request the whole catalog; small screens are held
@@ -33,27 +35,17 @@ function useIsDesktop(): boolean {
   return isDesktop
 }
 
-const EMPTY_FILTERS = {
-  search: '',
-  objectType: '',
-  orbitClass: '',
-  ownerCode: '',
-  country: '',
-  minAltKm: '',
-  maxAltKm: '',
-  minInc: '',
-  maxInc: '',
-  minYear: '',
-  maxYear: '',
-} as const
+// The globe shows orbits that currently exist, so its reset/default state is
+// in-orbit (not "all" — see GlobeFilters IN_ORBIT_OPTIONS).
+const GLOBE_DEFAULT_FILTERS = { ...EMPTY_COMMON_FILTERS, inOrbit: '1' } as const
 
 export default function GlobePage() {
   const navigate = useNavigate()
   const isDesktop = useIsDesktop()
-  const facets = useOrbitFacets()
+  const facets = useFacets('/api/orbits/facets')
   const [hovered, setHovered] = useState<OrbitDatum | null>(null)
   const [filters, setFilters] = useState<GlobeFilterValues>(() => ({
-    ...EMPTY_FILTERS,
+    ...GLOBE_DEFAULT_FILTERS,
     sample: isDesktopNow() ? DEFAULT_DESKTOP_SAMPLE : DEFAULT_MOBILE_SAMPLE,
   }))
 
@@ -68,7 +60,7 @@ export default function GlobePage() {
 
   const update = (patch: Partial<GlobeFilterValues>): void =>
     setFilters((prev) => ({ ...prev, ...patch }))
-  const reset = (): void => setFilters((prev) => ({ ...prev, ...EMPTY_FILTERS }))
+  const reset = (): void => setFilters((prev) => ({ ...prev, ...GLOBE_DEFAULT_FILTERS }))
 
   const ready = state.status === 'ready' ? state.data : null
 

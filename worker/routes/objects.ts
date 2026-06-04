@@ -1,3 +1,5 @@
+import { applyCommonFilters, optionalJoins } from '../lib/filters'
+
 export interface ObjectRow {
   norad_id: number
   object_name: string | null
@@ -6,6 +8,7 @@ export interface ObjectRow {
   orbit_class: string | null
   owner_code: string | null
   in_orbit: number | null
+  is_zombie: number | null
 }
 
 export interface ObjectsPage {
@@ -56,62 +59,38 @@ export async function getObjects(env: Env, url: URL): Promise<ObjectsPage> {
   const orderRaw = (params.get('order') ?? 'asc').toLowerCase()
   const order = orderRaw === 'desc' ? 'DESC' : 'ASC'
 
-  const where: string[] = []
-  const bindings: unknown[] = []
+  const { clauses, bindings, needs } = applyCommonFilters(params)
+  const whereClause = clauses.length > 0 ? `WHERE ${clauses.join(' AND ')}` : ''
 
-  const search = params.get('search')?.trim()
-  if (search) {
-    if (/^\d+$/.test(search)) {
-      where.push('s.norad_id = ?')
-      bindings.push(Number.parseInt(search, 10))
-    } else {
-      where.push('UPPER(s.object_name) LIKE ?')
-      bindings.push(`%${search.toUpperCase()}%`)
-    }
-  }
-
-  const objectType = params.get('objectType')
-  if (objectType) {
-    where.push('s.object_type = ?')
-    bindings.push(objectType)
-  }
-
-  const orbitClass = params.get('orbitClass')
-  if (orbitClass) {
-    where.push('o.orbit_class = ?')
-    bindings.push(orbitClass)
-  }
-
-  const whereClause = where.length > 0 ? `WHERE ${where.join(' AND ')}` : ''
-
-  const countSql = `
-    SELECT COUNT(*) AS total
+  // The table lists every object (no in-orbit/geometry restriction). orbital_data
+  // and risk_assessment are always LEFT-joined so the orbit-class and zombie
+  // columns are populated; ownership/launch are joined only when filtered on.
+  const fromClause = `
     FROM satellites s
     LEFT JOIN orbital_data o ON o.norad_id = s.norad_id
-    ${whereClause}
-  `
-  const countRow = await env.DB.prepare(countSql)
+    LEFT JOIN risk_assessment ra ON ra.norad_id = s.norad_id${optionalJoins({ ...needs, risk: false })}`
+
+  const countRow = await env.DB.prepare(`SELECT COUNT(*) AS total ${fromClause} ${whereClause}`)
     .bind(...bindings)
     .first<{ total: number }>()
   const total = countRow?.total ?? 0
 
   const offset = (page - 1) * pageSize
-  const dataSql = `
-    SELECT
+  const dataResult = await env.DB.prepare(
+    `SELECT
       s.norad_id      AS norad_id,
       s.object_name   AS object_name,
       s.object_type   AS object_type,
       s.ops_status    AS ops_status,
       o.orbit_class   AS orbit_class,
       s.owner_code    AS owner_code,
-      s.in_orbit      AS in_orbit
-    FROM satellites s
-    LEFT JOIN orbital_data o ON o.norad_id = s.norad_id
+      s.in_orbit      AS in_orbit,
+      ra.is_zombie    AS is_zombie
+    ${fromClause}
     ${whereClause}
     ORDER BY ${sortColumn} ${order}, s.norad_id ASC
-    LIMIT ? OFFSET ?
-  `
-  const dataResult = await env.DB.prepare(dataSql)
+    LIMIT ? OFFSET ?`
+  )
     .bind(...bindings, pageSize, offset)
     .all<ObjectRow>()
 

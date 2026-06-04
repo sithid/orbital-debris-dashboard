@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { appendFilterParams, type CommonFilters } from '../lib/filterParams'
 
 export type ObjectRow = {
   norad_id: number
@@ -8,6 +9,7 @@ export type ObjectRow = {
   orbit_class: string | null
   owner_code: string | null
   in_orbit: number | null
+  is_zombie: number | null
 }
 
 export type ObjectsPage = {
@@ -19,14 +21,11 @@ export type ObjectsPage = {
 
 export type SortOrder = 'asc' | 'desc'
 
-export type ObjectsQuery = {
+export type ObjectsQuery = CommonFilters & {
   page: number
   pageSize: number
-  search: string
   sort: string
   order: SortOrder
-  objectType: string
-  orbitClass: string
 }
 
 export type ObjectsState =
@@ -40,9 +39,7 @@ export function buildQueryString(q: ObjectsQuery): string {
   params.set('pageSize', String(q.pageSize))
   params.set('sort', q.sort)
   params.set('order', q.order)
-  if (q.search) params.set('search', q.search)
-  if (q.objectType) params.set('objectType', q.objectType)
-  if (q.orbitClass) params.set('orbitClass', q.orbitClass)
+  appendFilterParams(params, q)
   return params.toString()
 }
 

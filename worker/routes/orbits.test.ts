@@ -14,6 +14,9 @@ beforeAll(async () => {
   await env.DB.exec(
     'CREATE TABLE launch_events (launch_id TEXT PRIMARY KEY, launch_year INTEGER);'
   )
+  await env.DB.exec(
+    'CREATE TABLE risk_assessment (norad_id INTEGER PRIMARY KEY, is_zombie INTEGER);'
+  )
   await env.DB.batch([
     env.DB.prepare(
       "INSERT INTO ownership_operators (owner_code, owner, country_operator) VALUES ('US', 'United States Government', 'USA')"
@@ -48,6 +51,13 @@ beforeAll(async () => {
       env.DB.prepare(
         'INSERT INTO orbital_data (norad_id, orbit_class, semi_major_axis_km, eccentricity, inclination_degrees, perigee_km, apogee_km) VALUES (?, ?, ?, ?, ?, ?, ?)'
       ).bind(id, id % 2 === 0 ? 'LEO' : 'MEO', 7000 + id, 0.01 * (id % 10), id % 90, id, id + 10)
+    )
+    // is_zombie = 1 for every 4th id -> 50 zombies in 1..200
+    batch.push(
+      env.DB.prepare('INSERT INTO risk_assessment (norad_id, is_zombie) VALUES (?, ?)').bind(
+        id,
+        id % 4 === 0 ? 1 : 0
+      )
     )
   }
   // Row 999: null sma — should be filtered out
@@ -257,5 +267,12 @@ describe('GET /api/orbits', () => {
     const old = await fetchOrbits('?sample=10000&minYear=2000&maxYear=2010')
     expect(old.total).toBe(100)
     expect(old.orbits.every((o) => o.norad_id <= 100)).toBe(true)
+  })
+
+  it('filters by zombie status (JOIN risk_assessment)', async () => {
+    // is_zombie = 1 for every 4th id -> 50 of 200
+    const body = await fetchOrbits('?sample=10000&isZombie=1')
+    expect(body.total).toBe(50)
+    expect(body.orbits.every((o) => o.norad_id % 4 === 0)).toBe(true)
   })
 })

@@ -1,4 +1,5 @@
 import { getObject } from "./routes/object"
+import { getObjectFacets } from "./routes/objectFacets"
 import { getObjects, ObjectsQueryError } from "./routes/objects"
 import { getOrbitFacets } from "./routes/orbitFacets"
 import { getOrbits } from "./routes/orbits"
@@ -43,6 +44,10 @@ export default {
 
     if (url.pathname === "/api/orbits") {
       return json(await getOrbits(env, url))
+    }
+
+    if (url.pathname === "/api/objects/facets") {
+      return json(await getObjectFacets(env))
     }
 
     if (url.pathname === "/api/objects") {

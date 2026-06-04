@@ -1,3 +1,5 @@
+import { applyCommonFilters, optionalJoins } from '../lib/filters'
+
 export interface OrbitRow {
   norad_id: number
   object_name: string | null
@@ -33,140 +35,44 @@ function parseNonNegInt(value: string | null, fallback: number): number {
   return n
 }
 
-// Returns a finite number or null. A bad/empty range bound simply drops that
-// side of the filter rather than erroring.
-function parseFiniteNumber(value: string | null): number | null {
-  if (value == null || value.trim() === '') return null
-  const n = Number(value)
-  return Number.isFinite(n) ? n : null
-}
-
-// Pushes `column >= min` / `column <= max` predicates for whichever bounds are set.
-function addRange(
-  where: string[],
-  bindings: unknown[],
-  minColumn: string,
-  minValue: number | null,
-  maxColumn: string,
-  maxValue: number | null
-): void {
-  if (minValue !== null) {
-    where.push(`${minColumn} >= ?`)
-    bindings.push(minValue)
-  }
-  if (maxValue !== null) {
-    where.push(`${maxColumn} <= ?`)
-    bindings.push(maxValue)
-  }
-}
-
 export async function getOrbits(env: Env, url: URL): Promise<OrbitsResponse> {
   const params = url.searchParams
   const sample = parsePositiveInt(params.get('sample'), DEFAULT_SAMPLE, MAX_SAMPLE)
   const seed = parseNonNegInt(params.get('seed'), 0)
 
-  // Candidate set: objects with usable orbital geometry. The optional filters
-  // below mirror the Objects-table API (worker/routes/objects.ts) so the globe
-  // and the table agree on what each filter means.
-  const where: string[] = [
+  const { clauses, bindings, needs } = applyCommonFilters(params)
+
+  // Candidate set: objects with usable orbital geometry.
+  const where = [
     'o.semi_major_axis_km IS NOT NULL',
     'o.semi_major_axis_km > 0',
     'o.eccentricity IS NOT NULL',
     'o.inclination_degrees IS NOT NULL',
   ]
-  const bindings: unknown[] = []
+  const filterBindings: unknown[] = []
 
-  // in_orbit defaults to 1 (the globe shows orbits that currently exist); an
-  // explicit inOrbit=0 surfaces decayed objects instead.
-  const inOrbit = params.get('inOrbit') === '0' ? 0 : 1
-  where.push('s.in_orbit = ?')
-  bindings.push(inOrbit)
-
-  const objectType = params.get('objectType')
-  if (objectType) {
-    where.push('s.object_type = ?')
-    bindings.push(objectType)
+  // The globe shows orbits that currently exist, so default to in-orbit unless
+  // the caller explicitly asked otherwise (applyCommonFilters only adds the
+  // predicate when inOrbit is present).
+  if (params.get('inOrbit') == null) {
+    where.push('s.in_orbit = ?')
+    filterBindings.push(1)
   }
 
-  const orbitClass = params.get('orbitClass')
-  if (orbitClass) {
-    where.push('o.orbit_class = ?')
-    bindings.push(orbitClass)
-  }
-
-  const ownerCode = params.get('ownerCode')
-  if (ownerCode) {
-    where.push('s.owner_code = ?')
-    bindings.push(ownerCode)
-  }
-
-  // Name/NORAD search — same idiom as worker/routes/objects.ts: all-digit input
-  // is an exact NORAD id; anything else is a case-insensitive name substring.
-  const search = params.get('search')?.trim()
-  if (search) {
-    if (/^\d+$/.test(search)) {
-      where.push('s.norad_id = ?')
-      bindings.push(Number.parseInt(search, 10))
-    } else {
-      where.push('UPPER(s.object_name) LIKE ?')
-      bindings.push(`%${search.toUpperCase()}%`)
-    }
-  }
-
-  const country = params.get('country')
-  if (country) {
-    where.push('op.country_operator = ?')
-    bindings.push(country)
-  }
-
-  // Altitude band — containment: the whole orbit sits within [min, max], i.e.
-  // perigee >= minAlt and apogee <= maxAlt. A high-apogee transfer orbit that
-  // only dips into the band at perigee is excluded (its apogee is above max).
-  addRange(
-    where,
-    bindings,
-    'o.perigee_km',
-    parseFiniteNumber(params.get('minAltKm')),
-    'o.apogee_km',
-    parseFiniteNumber(params.get('maxAltKm'))
-  )
-
-  // Inclination range.
-  addRange(
-    where,
-    bindings,
-    'o.inclination_degrees',
-    parseFiniteNumber(params.get('minInc')),
-    'o.inclination_degrees',
-    parseFiniteNumber(params.get('maxInc'))
-  )
-
-  // Launch-year range (resolved through launch_events).
-  addRange(
-    where,
-    bindings,
-    'le.launch_year',
-    parseFiniteNumber(params.get('minYear')),
-    'le.launch_year',
-    parseFiniteNumber(params.get('maxYear'))
-  )
+  where.push(...clauses)
+  filterBindings.push(...bindings)
 
   const whereClause = where.join(' AND ')
-
-  // ownership_operators / launch_events are LEFT-joined so the country and
-  // launch-year filters resolve without dropping objects that lack those rows.
   const fromClause = `
     FROM satellites s
-    JOIN orbital_data o ON o.norad_id = s.norad_id
-    LEFT JOIN ownership_operators op ON op.owner_code = s.owner_code
-    LEFT JOIN launch_events le ON le.launch_id = s.launch_id`
+    JOIN orbital_data o ON o.norad_id = s.norad_id${optionalJoins(needs)}`
 
   const totalRow = await env.DB.prepare(
     `SELECT COUNT(*) AS total
      ${fromClause}
      WHERE ${whereClause}`
   )
-    .bind(...bindings)
+    .bind(...filterBindings)
     .first<{ total: number }>()
   const total = totalRow?.total ?? 0
 
@@ -191,7 +97,7 @@ export async function getOrbits(env: Env, url: URL): Promise<OrbitsResponse> {
      ORDER BY (s.norad_id * ?) % 2147483647, s.norad_id
      LIMIT ?`
   )
-    .bind(...bindings, seedMultiplier, sample)
+    .bind(...filterBindings, seedMultiplier, sample)
     .all<OrbitRow>()
 
   return {

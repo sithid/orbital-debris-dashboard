@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { appendFilterParams, type CommonFilters } from '../lib/filterParams'
 
 export type OrbitDatum = {
   norad_id: number
@@ -16,21 +17,9 @@ export type OrbitsResponse = {
   total: number
 }
 
-export type OrbitsQuery = {
+export type OrbitsQuery = CommonFilters & {
   sample: number
   seed: number
-  search: string
-  objectType: string
-  orbitClass: string
-  ownerCode: string
-  country: string
-  // Range filters — empty string means that bound is unset.
-  minAltKm: string
-  maxAltKm: string
-  minInc: string
-  maxInc: string
-  minYear: string
-  maxYear: string
 }
 
 export type OrbitsState =
@@ -42,17 +31,7 @@ export function buildOrbitsQuery(q: OrbitsQuery): string {
   const params = new URLSearchParams()
   params.set('sample', String(q.sample))
   params.set('seed', String(q.seed))
-  if (q.search) params.set('search', q.search)
-  if (q.objectType) params.set('objectType', q.objectType)
-  if (q.orbitClass) params.set('orbitClass', q.orbitClass)
-  if (q.ownerCode) params.set('ownerCode', q.ownerCode)
-  if (q.country) params.set('country', q.country)
-  if (q.minAltKm) params.set('minAltKm', q.minAltKm)
-  if (q.maxAltKm) params.set('maxAltKm', q.maxAltKm)
-  if (q.minInc) params.set('minInc', q.minInc)
-  if (q.maxInc) params.set('maxInc', q.maxInc)
-  if (q.minYear) params.set('minYear', q.minYear)
-  if (q.maxYear) params.set('maxYear', q.maxYear)
+  appendFilterParams(params, q)
   return params.toString()
 }
 
@@ -80,50 +59,4 @@ export function useOrbits(query: OrbitsQuery): OrbitsState {
   }, [qs])
 
   return state
-}
-
-export type OrbitOwnerFacet = { code: string; name: string }
-export type RangeBound = { min: number; max: number }
-export type OrbitBounds = {
-  altitudeKm: RangeBound
-  inclinationDeg: RangeBound
-  launchYear: RangeBound
-}
-export type OrbitFacets = {
-  owners: OrbitOwnerFacet[]
-  countries: string[]
-  bounds: OrbitBounds
-}
-
-const ZERO_BOUND: RangeBound = { min: 0, max: 0 }
-const EMPTY_FACETS: OrbitFacets = {
-  owners: [],
-  countries: [],
-  bounds: { altitudeKm: ZERO_BOUND, inclinationDeg: ZERO_BOUND, launchYear: ZERO_BOUND },
-}
-
-/**
- * Fetch the owner/country dropdown options once. These are high-cardinality
- * (129 owners, 74 countries) so they come from the server's /api/orbits/facets
- * endpoint rather than being hardcoded. Failure degrades gracefully to empty
- * lists — the dropdowns just show "All".
- */
-export function useOrbitFacets(): OrbitFacets {
-  const [facets, setFacets] = useState<OrbitFacets>(EMPTY_FACETS)
-
-  useEffect(() => {
-    const controller = new AbortController()
-    fetch('/api/orbits/facets', { signal: controller.signal })
-      .then(async (res) => {
-        if (!res.ok) throw new Error(`HTTP ${res.status}`)
-        setFacets((await res.json()) as OrbitFacets)
-      })
-      .catch((err: unknown) => {
-        if (err instanceof DOMException && err.name === 'AbortError') return
-        setFacets(EMPTY_FACETS)
-      })
-    return () => controller.abort()
-  }, [])
-
-  return facets
 }

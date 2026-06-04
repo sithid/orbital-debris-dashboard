@@ -2,9 +2,9 @@
 
 _This file is the phased build plan for the project. It's the bridge between `docs/PRD.md` (what to build) + `docs/DESIGN.md` (what it looks like) and the actual code. Re-run the `build-plan` skill whenever reality has diverged from the plan._
 
-> **Status:** v1 shipped; v2 globe complete through Phase 8 (identity/ownership + geometric/temporal filters)
+> **Status:** v1 shipped; v2 globe complete through Phase 9 — Objects table + Globe now share one filter surface (incl. zombie + in_orbit)
 > **Last updated:** 2026-06-04
-> **Current phase:** Phase 8 complete — globe has the full filter surface (type, orbit class, name, owner, country, altitude, inclination, launch year) + max-orbits cap
+> **Current phase:** Phase 9 complete — shared filter module (backend) + shared filter controls (frontend) drive both pages
 
 > **Architecture note (2026-05-14):** The project was bootstrapped with `npm create cloudflare@latest` using the newer **Workers + Static Assets** model, not Pages Functions. File layout differs from this plan's original wording: API routes live in `worker/index.ts` (a single Worker entrypoint routing `/api/*`), not under `functions/api/*.ts`. Tests use `@cloudflare/vitest-pool-workers` (Vitest 4) with the `cloudflareTest` plugin. Wrangler config is `wrangler.jsonc`. The app lives in the nested directory `orbital-debris-dashboard/` (kept nested for now). Treat the original Pages-Functions file paths in later phases as historical — translate to Worker route handlers inside `worker/`.
 
@@ -340,6 +340,33 @@ That way each phase fits in a focused session — no full-repo loads, no thrashi
 
 ---
 
+### Phase 9 — Unified filters across Objects + Globe (+ zombie & in_orbit) — v2
+
+**Goal:** The Objects table and the Globe had drifted (table had 3 filters, globe had 8). Give both pages the *same* filter surface from shared code, and add two new dimensions: **zombie** (`risk_assessment.is_zombie`) and **in_orbit** (`satellites.in_orbit`).
+
+**Context to load:** `CLAUDE.md`, `worker/routes/{objects,orbits}.ts`, `worker/lib/`, `src/pages/{Objects,Globe}.tsx`, `src/components/GlobeFilters.tsx`, `src/hooks/use{Objects,Orbits,Facets}.ts`, `schema.sql`.
+
+**Files this phase creates/modifies:** _(actuals, 2026-06-04)_
+- `worker/lib/filters.ts` (new) — `applyCommonFilters(params) → { clauses, bindings, needs }`; one predicate builder for search/objectType/orbitClass/ownerCode/country/altitude(containment)/inclination/launchYear/isZombie/inOrbit, used by both routes. `parseFiniteNumber`/`addRange` live here.
+- `worker/lib/facets.ts` (new) — `getFacets(env, baseWhere)`; `orbitFacets.ts` is now a thin wrapper (candidate scope) + new `objectFacets.ts` (all-objects scope) dispatched at `/api/objects/facets`.
+- `worker/routes/orbits.ts`, `worker/routes/objects.ts` — call `applyCommonFilters`; objects adds the ownership/launch/risk LEFT JOINs + `is_zombie` in the response; in_orbit default = all (objects) vs 1 (orbits).
+- `src/lib/filterParams.ts` (new) — `CommonFilters` type + `appendFilterParams` + `countActiveFilters`, used by both `buildQueryString` and `buildOrbitsQuery`.
+- `src/components/filters/` (new) — `RangeInputs` (extracted), `FacetSelect`, `TristateSelect`, shared `fieldStyles`.
+- `src/hooks/useFacets.ts` (new) — generalizes the old `useOrbitFacets` to `useFacets(endpoint)`.
+- `src/pages/Objects.tsx` — always-visible search/type/orbit + a Headless UI `Disclosure` "More filters" (owner, country, ranges, in_orbit, zombie) with active-count badge + Reset; new "Zombie" column.
+- `src/components/GlobeFilters.tsx` + `src/pages/Globe.tsx` — switched to the shared controls; added zombie + in_orbit (`'all'` sentinel for the globe, which otherwise defaults to in-orbit).
+
+**Tests added:** objects API (owner/country/altitude/inclination/year/isZombie/inOrbit/combined), `objectFacets` (all-objects scope incl. decayed-only owners), orbits `isZombie`, `filterParams`. 77/77 passing.
+
+**Done-when:**
+- [x] Objects table exposes the full filter set + zombie + in_orbit behind a disclosure; globe gains zombie + in_orbit.
+- [x] One backend filter builder + one set of frontend controls drive both pages (no duplication).
+- [x] `npm test`, `npm run typecheck`, `npm run build` pass.
+
+**Session budget:** ~2 sessions.
+
+---
+
 ## Decision log
 
 | Date | Phase touched | Change | Reason |
@@ -362,6 +389,9 @@ That way each phase fits in a focused session — no full-repo loads, no thrashi
 | 2026-06-03 | Phase 7 (v2) | Expose the existing `sample` param as a "max orbits" slider; raise `MAX_SAMPLE` 10000 → 40000 | Phase 6 claimed the globe rendered the full ~34k but the server silently clamped to 10k — raising the cap makes that true and gives the declutter slider real range. The deterministic sample means lowering the cap shows a stable representative subset. `owner_code` and "owner" are one dimension (code vs. display name) — a single dropdown filtering by `ownerCode`. |
 | 2026-06-04 | Phase 8 (v2) | Range filters use paired min/max **number inputs**, not sliders | HTML has no native dual-thumb range, and altitude spans 5 km–1.37M km, which mis-scales any linear slider. Number inputs are dependency-free, accessible, and let the user type exact values; range bounds from `/api/orbits/facets` are shown as placeholders. |
 | 2026-06-04 | Phase 8 (v2) | Altitude band corrected from **overlap** to **containment** (`perigee >= min AND apogee <= max`) | Overlap (`apogee >= min AND perigee <= max`) let high-eccentricity transfer orbits through when they only dipped into the band at perigee (e.g. a 488 km perigee / 23,377 km apogee orbit showing up in a 300–500 km filter). Containment matches the intuitive "orbit lives in this band" reading. |
+| 2026-06-04 | Phase 9 (v2) | Extract one shared filter builder (`worker/lib/filters.ts`) + shared frontend controls (`src/components/filters/`, `src/lib/filterParams.ts`) instead of duplicating filters per page | The table and globe had already drifted (3 vs 8 filters). A single predicate builder + a single `CommonFilters` type + shared controls means a new filter is added once and both pages get it — the structural fix for the drift, not just a one-time catch-up. |
+| 2026-06-04 | Phase 9 (v2) | `in_orbit` default differs by page: objects = all (`''` omits the param), globe = in-orbit (`'1'`), with an explicit `'all'` sentinel for the globe | The globe is about orbits that *currently exist*, so in-orbit is its sensible default; the table is a full catalog browser, so "all" is its default. The orbits API treats an absent `inOrbit` as in-orbit-only, so the globe needs a sentinel to request everything. |
+| 2026-06-04 | Phase 9 (v2) | Facets are scoped per page via `getFacets(env, baseWhere)`: globe = candidate set, objects = all objects | 129 owners / 74 countries app-wide vs 106 / 71 in-orbit. The table's dropdowns must cover owners/countries that exist only on decayed objects; the globe's must not offer values that would render nothing. |
 
 ---
 
