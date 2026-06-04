@@ -119,14 +119,15 @@ export async function getOrbits(env: Env, url: URL): Promise<OrbitsResponse> {
     bindings.push(country)
   }
 
-  // Altitude band — overlap semantics: an orbit is in the band if it passes
-  // through it, i.e. apogee >= minAlt and perigee <= maxAlt.
+  // Altitude band — containment: the whole orbit sits within [min, max], i.e.
+  // perigee >= minAlt and apogee <= maxAlt. A high-apogee transfer orbit that
+  // only dips into the band at perigee is excluded (its apogee is above max).
   addRange(
     where,
     bindings,
-    'o.apogee_km',
-    parseFiniteNumber(params.get('minAltKm')),
     'o.perigee_km',
+    parseFiniteNumber(params.get('minAltKm')),
+    'o.apogee_km',
     parseFiniteNumber(params.get('maxAltKm'))
   )
 

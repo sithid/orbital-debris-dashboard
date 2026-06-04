@@ -215,24 +215,26 @@ describe('GET /api/orbits', () => {
     expect(body.orbits[0].norad_id).toBe(15)
   })
 
-  it('filters by maximum altitude (perigee_km <= maxAltKm)', async () => {
-    // perigee_km = id, so perigee <= 50 -> ids 1..50
+  it('filters by maximum altitude (apogee_km <= maxAltKm)', async () => {
+    // apogee_km = id + 10, so apogee <= 50 -> id <= 40 -> ids 1..40
     const body = await fetchOrbits('?sample=10000&maxAltKm=50')
-    expect(body.total).toBe(50)
-    expect(body.orbits.every((o) => o.norad_id <= 50)).toBe(true)
+    expect(body.total).toBe(40)
+    expect(body.orbits.every((o) => o.norad_id <= 40)).toBe(true)
   })
 
-  it('filters by minimum altitude (apogee_km >= minAltKm)', async () => {
-    // apogee_km = id + 10, so apogee >= 150 -> id >= 140 -> ids 140..200
+  it('filters by minimum altitude (perigee_km >= minAltKm)', async () => {
+    // perigee_km = id, so perigee >= 150 -> ids 150..200
     const body = await fetchOrbits('?sample=10000&minAltKm=150')
-    expect(body.total).toBe(61)
-    expect(body.orbits.every((o) => o.norad_id >= 140)).toBe(true)
+    expect(body.total).toBe(51)
+    expect(body.orbits.every((o) => o.norad_id >= 150)).toBe(true)
   })
 
-  it('filters by an altitude band using overlap semantics', async () => {
-    // apogee >= 100 (id >= 90) AND perigee <= 120 (id <= 120) -> ids 90..120
+  it('filters by an altitude band using containment semantics', async () => {
+    // perigee >= 100 (id >= 100) AND apogee <= 120 (id + 10 <= 120 -> id <= 110)
+    // -> ids 100..110. A high-apogee orbit dipping into the band is excluded.
     const body = await fetchOrbits('?sample=10000&minAltKm=100&maxAltKm=120')
-    expect(body.total).toBe(31)
+    expect(body.total).toBe(11)
+    expect(body.orbits.every((o) => o.norad_id >= 100 && o.norad_id <= 110)).toBe(true)
   })
 
   it('filters by inclination range', async () => {

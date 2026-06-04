@@ -321,13 +321,13 @@ That way each phase fits in a focused session — no full-repo loads, no thrashi
 **Context to load:** `CLAUDE.md`, `worker/routes/orbits.ts`, `worker/routes/orbitFacets.ts`, `src/components/GlobeFilters.tsx`, `src/pages/Globe.tsx`, `src/hooks/useOrbits.ts`, `schema.sql` (`orbital_data` perigee/apogee, `launch_events`).
 
 **Files this phase creates/modifies:** _(actuals, 2026-06-04)_
-- `worker/routes/orbits.ts` — `LEFT JOIN launch_events`; `minAltKm`/`maxAltKm` (altitude **overlap**: `apogee_km >= min AND perigee_km <= max`), `minInc`/`maxInc`, `minYear`/`maxYear` params + `parseFiniteNumber` + an `addRange` helper.
+- `worker/routes/orbits.ts` — `LEFT JOIN launch_events`; `minAltKm`/`maxAltKm` (altitude **containment**: `perigee_km >= min AND apogee_km <= max`), `minInc`/`maxInc`, `minYear`/`maxYear` params + `parseFiniteNumber` + an `addRange` helper.
 - `worker/routes/orbitFacets.ts` — added a `bounds` block (`altitudeKm`/`inclinationDeg`/`launchYear` min+max over the candidate set) for the number-input placeholders.
 - `src/hooks/useOrbits.ts` — six range strings on `OrbitsQuery`; `OrbitFacets` gains `bounds`/`RangeBound`/`OrbitBounds`.
 - `src/components/GlobeFilters.tsx` — internal `RangeInputs` (debounced min/max number boxes, placeholders from bounds) reused 3×; Reset/hasActiveFilters extended.
 - `src/pages/Globe.tsx` — six fields added to `EMPTY_FILTERS`.
 
-**Decisions:** UI is **paired min/max number inputs**, not sliders — dependency-free, accessible, and immune to altitude's 5 km–1.37M km span. Bounds come from `/api/orbits/facets`. Altitude uses overlap (orbit passes through the band).
+**Decisions:** UI is **paired min/max number inputs**, not sliders — dependency-free, accessible, and immune to altitude's 5 km–1.37M km span. Bounds come from `/api/orbits/facets`. Altitude uses **containment** (whole orbit within the band: `perigee >= min AND apogee <= max`) — initially shipped as overlap, corrected 2026-06-04 because a transfer orbit dipping into the band at perigee was surprising.
 
 **Tests added:** API altitude (min/max/band-overlap), inclination, launch-year filters; facet `bounds` (candidate-restricted); `buildOrbitsQuery` range params. 63/63 passing.
 
@@ -360,7 +360,8 @@ That way each phase fits in a focused session — no full-repo loads, no thrashi
 | 2026-06-03 | Phase 6 (v2) | Mobile (`< md`) renders a reduced 1k sample, not a desktop-only banner or 2D fallback | Keeps the globe usable on phones without asking a mobile GPU to draw ~34k instances. Matches PRD §5 "mobile should not break but is not optimized." Added `object_name` to `/api/orbits` for the hover chip; filter state is local (not URL-synced), mirroring the Objects page. |
 | 2026-06-03 | Phase 7 (v2) | Owner/country dropdowns are populated from a new `/api/orbits/facets` endpoint, not hardcoded | 129 distinct owners + 74 countries is far too many to hardcode (the Objects page hardcodes only ~5 types/classes). Facets are restricted to the candidate set so a dropdown never offers a value that returns nothing. Non-cascading (owner choice doesn't shrink the country list) to keep it simple. |
 | 2026-06-03 | Phase 7 (v2) | Expose the existing `sample` param as a "max orbits" slider; raise `MAX_SAMPLE` 10000 → 40000 | Phase 6 claimed the globe rendered the full ~34k but the server silently clamped to 10k — raising the cap makes that true and gives the declutter slider real range. The deterministic sample means lowering the cap shows a stable representative subset. `owner_code` and "owner" are one dimension (code vs. display name) — a single dropdown filtering by `ownerCode`. |
-| 2026-06-04 | Phase 8 (v2) | Range filters use paired min/max **number inputs**, not sliders | HTML has no native dual-thumb range, and altitude spans 5 km–1.37M km, which mis-scales any linear slider. Number inputs are dependency-free, accessible, and let the user type exact values; range bounds from `/api/orbits/facets` are shown as placeholders. Altitude uses **overlap** semantics (`apogee >= min AND perigee <= max`) so a band shows orbits passing through it, not only those fully contained. |
+| 2026-06-04 | Phase 8 (v2) | Range filters use paired min/max **number inputs**, not sliders | HTML has no native dual-thumb range, and altitude spans 5 km–1.37M km, which mis-scales any linear slider. Number inputs are dependency-free, accessible, and let the user type exact values; range bounds from `/api/orbits/facets` are shown as placeholders. |
+| 2026-06-04 | Phase 8 (v2) | Altitude band corrected from **overlap** to **containment** (`perigee >= min AND apogee <= max`) | Overlap (`apogee >= min AND perigee <= max`) let high-eccentricity transfer orbits through when they only dipped into the band at perigee (e.g. a 488 km perigee / 23,377 km apogee orbit showing up in a 300–500 km filter). Containment matches the intuitive "orbit lives in this band" reading. |
 
 ---
 
