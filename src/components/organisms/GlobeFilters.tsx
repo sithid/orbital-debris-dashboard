@@ -1,11 +1,11 @@
 import { useEffect, useRef, useState } from 'react'
-import type { CommonFilters } from '../lib/filterParams'
-import type { Facets } from '../hooks/useFacets'
-import { Eyebrow } from './atoms/Eyebrow'
-import { TextInput } from './atoms/TextInput'
-import { FacetSelect } from './filters/FacetSelect'
-import { RangeInputs } from './filters/RangeInputs'
-import { TristateSelect } from './filters/TristateSelect'
+import type { CommonFilters } from '../../lib/filterParams'
+import type { Facets } from '../../hooks/useFacets'
+import { Eyebrow } from '../atoms/Eyebrow'
+import { TextInput } from '../atoms/TextInput'
+import { FacetSelect } from '../molecules/FacetSelect'
+import { RangeInputs } from '../molecules/RangeInputs'
+import { TristateSelect } from '../molecules/TristateSelect'
 
 // Type / orbit-class option lists mirror src/pages/Objects.tsx. Owner and
 // country are high-cardinality, so they come from the facets endpoint instead.

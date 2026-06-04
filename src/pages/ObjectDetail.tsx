@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
-import { DetailSection, formatValue, type DetailField } from '../components/DetailSection'
+import { DetailSection, formatValue, type DetailField } from '../components/molecules/DetailSection'
 
 type ObjectDetail = {
   identification: {

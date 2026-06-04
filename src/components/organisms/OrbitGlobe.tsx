@@ -9,9 +9,9 @@ import {
   TorusGeometry,
   Vector2,
 } from 'three'
-import { orbitInstanceMatrix } from '../lib/orbitGeometry'
-import { noradForInstance, screenToNdc } from '../lib/orbitPicking'
-import type { OrbitDatum } from '../hooks/useOrbits'
+import { orbitInstanceMatrix } from '../../lib/orbitGeometry'
+import { noradForInstance, screenToNdc } from '../../lib/orbitPicking'
+import type { OrbitDatum } from '../../hooks/useOrbits'
 
 export type { OrbitDatum }
 

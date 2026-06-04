@@ -7,7 +7,7 @@ import {
   DialogTitle,
 } from '@headlessui/react'
 import { Bars3Icon, XMarkIcon } from '@heroicons/react/24/outline'
-import { NavLinks } from './NavLinks'
+import { NavLinks } from '../molecules/NavLinks'
 
 export function MobileDrawer() {
   const [open, setOpen] = useState(false)

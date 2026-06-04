@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { StatCard } from '../components/StatCard'
+import { StatCard } from '../components/molecules/StatCard'
 import { buttonClasses } from '../components/atoms/Button'
 import { Eyebrow } from '../components/atoms/Eyebrow'
 

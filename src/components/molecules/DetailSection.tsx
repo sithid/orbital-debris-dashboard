@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react'
-import { Card } from './atoms/Card'
-import { Eyebrow } from './atoms/Eyebrow'
+import { Card } from '../atoms/Card'
+import { Eyebrow } from '../atoms/Eyebrow'
 
 export type DetailField = {
   label: string

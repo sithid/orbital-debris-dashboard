@@ -1,5 +1,5 @@
-import { Card } from './atoms/Card'
-import { Eyebrow } from './atoms/Eyebrow'
+import { Card } from '../atoms/Card'
+import { Eyebrow } from '../atoms/Eyebrow'
 
 type StatCardProps = {
   label: string

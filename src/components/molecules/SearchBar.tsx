@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { MagnifyingGlassIcon } from '@heroicons/react/24/outline'
-import { fieldBase } from './atoms/field'
+import { fieldBase } from '../atoms/field'
 
 type SearchBarProps = {
   value: string

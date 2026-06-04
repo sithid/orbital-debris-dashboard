@@ -1,5 +1,5 @@
 import { ChevronDownIcon, ChevronUpIcon, ChevronUpDownIcon } from '@heroicons/react/20/solid'
-import type { SortOrder } from '../hooks/useObjects'
+import type { SortOrder } from '../../hooks/useObjects'
 
 export type Column<T> = {
   key: string
