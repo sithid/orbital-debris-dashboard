@@ -2,9 +2,9 @@
 
 _This file is the phased build plan for the project. It's the bridge between `docs/PRD.md` (what to build) + `docs/DESIGN.md` (what it looks like) and the actual code. Re-run the `build-plan` skill whenever reality has diverged from the plan._
 
-> **Status:** v1 shipped; v2 globe complete through Phase 9 — Objects table + Globe now share one filter surface (incl. zombie + in_orbit)
+> **Status:** v1 + v2 shipped (Phases 0–9); Phase 10 (Atomic Design restructure) complete
 > **Last updated:** 2026-06-04
-> **Current phase:** Phase 9 complete — shared filter module (backend) + shared filter controls (frontend) drive both pages
+> **Current phase:** Phase 10 complete — components reorganized into atoms/molecules/organisms/templates (behavior-neutral)
 
 > **Architecture note (2026-05-14):** The project was bootstrapped with `npm create cloudflare@latest` using the newer **Workers + Static Assets** model, not Pages Functions. File layout differs from this plan's original wording: API routes live in `worker/index.ts` (a single Worker entrypoint routing `/api/*`), not under `functions/api/*.ts`. Tests use `@cloudflare/vitest-pool-workers` (Vitest 4) with the `cloudflareTest` plugin. Wrangler config is `wrangler.jsonc`. The app lives in the nested directory `orbital-debris-dashboard/` (kept nested for now). Treat the original Pages-Functions file paths in later phases as historical — translate to Worker route handlers inside `worker/`.
 
@@ -367,6 +367,30 @@ That way each phase fits in a focused session — no full-repo loads, no thrashi
 
 ---
 
+### Phase 10 — Atomic Design restructure
+
+**Goal:** Align the component layer with Brad Frost's Atomic Design — a deliberate atoms → molecules → organisms → templates → pages hierarchy — and kill the repeated Tailwind class-strings. Behavior-neutral.
+
+**Context to load:** `CLAUDE.md`, `docs/DESIGN.md`, `src/components/**`, `src/App.tsx`, `src/pages/**`.
+
+**Files this phase creates/modifies:** _(actuals, 2026-06-04)_
+- `src/components/atoms/` — `Button` (+ `buttonClasses`), `TextInput`, `Select`, `Badge`, `Eyebrow`, `Card`, `field.ts`. Removed `filters/fieldStyles.ts`.
+- Moved into tiers: `molecules/` (SearchBar, Pagination, StatCard, NavLinks, DetailSection, RangeInputs, FacetSelect, TristateSelect, Legend, IllustrativeNotice, HoverChip, GlobeStatsPanel) and `organisms/` (DataTable, GlobeFilters, GlobeOverlay, ObjectsToolbar, Sidebar, MobileDrawer, OrbitGlobe).
+- `templates/DashboardLayout.tsx` + `pages/NotFound.tsx` extracted from `App.tsx`; `App.tsx` is now pure routing.
+- `Objects.tsx` / `Globe.tsx` slimmed to compositions (toolbar / overlay organisms).
+- `src/components/ATOMIC.md` documents the tier of each component.
+
+**Done in 3 behavior-neutral, independently-committable steps** (atoms+refactor → tier folders+template → slim pages), each green on `npm test` (77), typecheck, build.
+
+**Done-when:**
+- [x] `src/components/{atoms,molecules,organisms,templates}/` populated; pages compose them.
+- [x] No new dependencies; plain Tailwind token variants.
+- [x] 77/77 tests, typecheck + build green; no visual/behavior change.
+
+**Session budget:** ~1–2 sessions.
+
+---
+
 ## Decision log
 
 | Date | Phase touched | Change | Reason |
@@ -392,6 +416,7 @@ That way each phase fits in a focused session — no full-repo loads, no thrashi
 | 2026-06-04 | Phase 9 (v2) | Extract one shared filter builder (`worker/lib/filters.ts`) + shared frontend controls (`src/components/filters/`, `src/lib/filterParams.ts`) instead of duplicating filters per page | The table and globe had already drifted (3 vs 8 filters). A single predicate builder + a single `CommonFilters` type + shared controls means a new filter is added once and both pages get it — the structural fix for the drift, not just a one-time catch-up. |
 | 2026-06-04 | Phase 9 (v2) | `in_orbit` default differs by page: objects = all (`''` omits the param), globe = in-orbit (`'1'`), with an explicit `'all'` sentinel for the globe | The globe is about orbits that *currently exist*, so in-orbit is its sensible default; the table is a full catalog browser, so "all" is its default. The orbits API treats an absent `inOrbit` as in-orbit-only, so the globe needs a sentinel to request everything. |
 | 2026-06-04 | Phase 9 (v2) | Facets are scoped per page via `getFacets(env, baseWhere)`: globe = candidate set, objects = all objects | 129 owners / 74 countries app-wide vs 106 / 71 in-orbit. The table's dropdowns must cover owners/countries that exist only on decayed objects; the globe's must not offer values that would render nothing. |
+| 2026-06-04 | Phase 10 | Atomic Design restructure: full `atoms/molecules/organisms/templates` folders, plain Tailwind variants (no `cva`), no jsdom/RTL added | User chose the full Brad Frost layout. Tests only import `src/lib` + `src/hooks`, never components, so the moves can't break them — verified by `tsc -b` + build at each of 3 steps. Atoms are token-class wrappers; padding stays per-call-site to keep the refactor pixel-neutral. |
 
 ---
 

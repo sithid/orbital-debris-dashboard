@@ -1,7 +1,9 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { OrbitGlobe } from '../components/organisms/OrbitGlobe'
-import { GlobeFilters, type GlobeFilterValues } from '../components/organisms/GlobeFilters'
+import { GlobeOverlay } from '../components/organisms/GlobeOverlay'
+import { HoverChip } from '../components/molecules/HoverChip'
+import type { GlobeFilterValues } from '../components/organisms/GlobeFilters'
 import { useOrbits, type OrbitDatum } from '../hooks/useOrbits'
 import { useFacets } from '../hooks/useFacets'
 import { EMPTY_COMMON_FILTERS } from '../lib/filterParams'
@@ -74,86 +76,17 @@ export default function GlobePage() {
         onSelect={(o) => navigate(`/objects/${o.norad_id}`)}
       />
 
-      <div className="pointer-events-none absolute left-6 top-6 z-10 max-h-[calc(100vh-3rem)] w-72 max-w-[calc(100vw-3rem)] space-y-3 overflow-y-auto pr-1">
-        <div className="pointer-events-auto rounded-lg border border-border bg-surface/85 p-4 shadow-lg backdrop-blur">
-          <p className="text-xs uppercase tracking-widest text-muted">Globe</p>
-          <h1 className="mt-1 text-xl font-semibold text-fg">Orbit shells</h1>
-          <p className="mt-2 text-sm text-muted">
-            {state.status === 'ready' ? (
-              <>
-                Showing{' '}
-                <span className="font-mono text-cyan">
-                  {state.data.orbits.length.toLocaleString()}
-                </span>{' '}
-                of {state.data.total.toLocaleString()} orbits matching the current
-                filters.
-              </>
-            ) : state.status === 'loading' ? (
-              'Loading orbital data...'
-            ) : (
-              <span className="text-danger">Couldn't load orbits: {state.message}</span>
-            )}
-          </p>
-          {!isDesktop && (
-            <p className="mt-2 text-xs text-muted">
-              Showing a reduced sample on small screens — open on a larger display
-              for the full set.
-            </p>
-          )}
-        </div>
+      <GlobeOverlay
+        state={state}
+        isDesktop={isDesktop}
+        filters={filters}
+        facets={facets}
+        sampleMax={sampleMax}
+        onChange={update}
+        onReset={reset}
+      />
 
-        <GlobeFilters
-          values={filters}
-          facets={facets}
-          sampleMax={sampleMax}
-          onChange={update}
-          onReset={reset}
-        />
-
-        <div className="pointer-events-auto rounded-lg border border-border bg-surface/85 p-4 shadow-lg backdrop-blur">
-          <p className="text-xs uppercase tracking-widest text-muted">Legend</p>
-          <ul className="mt-2 space-y-1 text-sm text-fg">
-            <li className="flex items-center gap-2">
-              <span aria-hidden className="inline-block h-2 w-4 rounded bg-cyan" />
-              LEO — low Earth orbit
-            </li>
-            <li className="flex items-center gap-2">
-              <span aria-hidden className="inline-block h-2 w-4 rounded bg-gold" />
-              MEO — medium Earth orbit
-            </li>
-            <li className="flex items-center gap-2">
-              <span aria-hidden className="inline-block h-2 w-4 rounded bg-success" />
-              GEO — geostationary
-            </li>
-            <li className="flex items-center gap-2">
-              <span aria-hidden className="inline-block h-2 w-4 rounded bg-muted" />
-              Other / unknown
-            </li>
-          </ul>
-        </div>
-
-        <div className="pointer-events-auto rounded-lg border border-warning/40 bg-warning/10 p-3 text-xs text-fg">
-          <strong className="text-warning">Illustrative.</strong> Orbit
-          orientations (RAAN, argument of perigee) are randomized at render time,
-          and altitudes above Earth are exaggerated{' '}
-          <span className="font-mono">2.5×</span> for visual clarity. This shows{' '}
-          <em>which orbits exist</em>, not where objects are right now.
-        </div>
-      </div>
-
-      {/* Hover chip — names the orbit currently under the cursor. */}
-      {hovered && (
-        <div className="pointer-events-none absolute bottom-6 left-1/2 z-10 -translate-x-1/2 rounded-lg border border-border bg-surface/90 px-4 py-2 text-sm shadow-lg backdrop-blur">
-          <span className="font-medium text-fg">
-            {hovered.object_name ?? 'Unnamed object'}
-          </span>
-          <span className="ml-2 font-mono text-xs text-muted">
-            NORAD {hovered.norad_id}
-            {hovered.orbit_class ? ` · ${hovered.orbit_class}` : ''}
-          </span>
-          <span className="ml-2 text-xs text-cyan">click to open →</span>
-        </div>
-      )}
+      <HoverChip orbit={hovered} />
     </section>
   )
 }

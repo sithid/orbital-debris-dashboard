@@ -1,36 +1,13 @@
 import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Disclosure, DisclosureButton, DisclosurePanel } from '@headlessui/react'
-import { ChevronDownIcon } from '@heroicons/react/24/outline'
 import { DataTable, type Column } from '../components/organisms/DataTable'
+import { ObjectsToolbar } from '../components/organisms/ObjectsToolbar'
 import { Pagination } from '../components/molecules/Pagination'
-import { SearchBar } from '../components/molecules/SearchBar'
-import { FacetSelect } from '../components/molecules/FacetSelect'
-import { RangeInputs } from '../components/molecules/RangeInputs'
-import { TristateSelect } from '../components/molecules/TristateSelect'
 import { Badge } from '../components/atoms/Badge'
 import { Eyebrow } from '../components/atoms/Eyebrow'
 import { useFacets } from '../hooks/useFacets'
-import {
-  countActiveFilters,
-  EMPTY_COMMON_FILTERS,
-  type CommonFilters,
-} from '../lib/filterParams'
+import { countActiveFilters, EMPTY_COMMON_FILTERS, type CommonFilters } from '../lib/filterParams'
 import { useObjects, type ObjectRow, type ObjectsQuery, type SortOrder } from '../hooks/useObjects'
-
-const OBJECT_TYPES = ['PAYLOAD', 'DEBRIS', 'ROCKET BODY', 'UNKNOWN', 'TBA']
-const ORBIT_CLASSES = ['LEO', 'MEO', 'GEO', 'HEO', 'UNKNOWN']
-
-const IN_ORBIT_OPTIONS = [
-  { value: '', label: 'All' },
-  { value: '1', label: 'In orbit' },
-  { value: '0', label: 'Decayed' },
-]
-const ZOMBIE_OPTIONS = [
-  { value: '', label: 'All objects' },
-  { value: '1', label: 'Zombies only' },
-  { value: '0', label: 'Exclude zombies' },
-]
 
 const INITIAL_QUERY: ObjectsQuery = {
   ...EMPTY_COMMON_FILTERS,
@@ -122,107 +99,14 @@ export default function Objects() {
         </p>
       </header>
 
-      <div className="mb-3 grid gap-3 md:grid-cols-3">
-        <SearchBar value={query.search} onChange={(v) => update('search', v)} />
-        <FacetSelect
-          label="Filter by object type"
-          allLabel="All types"
-          value={query.objectType}
-          options={OBJECT_TYPES.map((t) => ({ value: t, label: t }))}
-          onChange={(v) => update('objectType', v)}
-        />
-        <FacetSelect
-          label="Filter by orbit class"
-          allLabel="All orbits"
-          value={query.orbitClass}
-          options={ORBIT_CLASSES.map((o) => ({ value: o, label: o }))}
-          onChange={(v) => update('orbitClass', v)}
-        />
-      </div>
-
-      <Disclosure>
-        {({ open }) => (
-          <div className="mb-4">
-            <div className="flex items-center gap-3">
-              <DisclosureButton className="inline-flex items-center gap-2 rounded-lg border border-border bg-surface px-3 py-2 text-sm text-fg hover:bg-surface/70 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan">
-                <ChevronDownIcon
-                  aria-hidden
-                  className={`h-4 w-4 transition-transform ${open ? 'rotate-180' : ''}`}
-                />
-                More filters
-                {advancedCount > 0 && (
-                  <Badge variant="accent" className="rounded-full">
-                    {advancedCount}
-                  </Badge>
-                )}
-              </DisclosureButton>
-              {advancedCount > 0 && (
-                <button
-                  type="button"
-                  onClick={resetFilters}
-                  className="text-xs text-cyan hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan"
-                >
-                  Reset filters
-                </button>
-              )}
-            </div>
-
-            <DisclosurePanel className="mt-3 grid gap-4 rounded-lg border border-border bg-surface p-4 md:grid-cols-3">
-              <FacetSelect
-                label="Filter by owner or operator"
-                allLabel="All owners"
-                value={query.ownerCode}
-                options={facets.owners.map((o) => ({ value: o.code, label: o.name }))}
-                onChange={(v) => update('ownerCode', v)}
-              />
-              <FacetSelect
-                label="Filter by operator country"
-                allLabel="All countries"
-                value={query.country}
-                options={facets.countries.map((c) => ({ value: c, label: c }))}
-                onChange={(v) => update('country', v)}
-              />
-              <TristateSelect
-                label="Status"
-                value={query.inOrbit}
-                options={IN_ORBIT_OPTIONS}
-                onChange={(v) => update('inOrbit', v)}
-              />
-              <RangeInputs
-                label="Altitude"
-                unit="km"
-                min={query.minAltKm}
-                max={query.maxAltKm}
-                placeholder={facets.bounds.altitudeKm}
-                onCommit={({ min, max }) => updateFilters({ minAltKm: min, maxAltKm: max })}
-              />
-              <RangeInputs
-                label="Inclination"
-                unit="°"
-                step={1}
-                min={query.minInc}
-                max={query.maxInc}
-                placeholder={facets.bounds.inclinationDeg}
-                onCommit={({ min, max }) => updateFilters({ minInc: min, maxInc: max })}
-              />
-              <RangeInputs
-                label="Launch year"
-                step={1}
-                min={query.minYear}
-                max={query.maxYear}
-                placeholder={facets.bounds.launchYear}
-                onCommit={({ min, max }) => updateFilters({ minYear: min, maxYear: max })}
-              />
-              <TristateSelect
-                label="Zombie"
-                value={query.isZombie}
-                options={ZOMBIE_OPTIONS}
-                onChange={(v) => update('isZombie', v)}
-              />
-            </DisclosurePanel>
-          </div>
-        )}
-      </Disclosure>
+      <ObjectsToolbar
+        values={query}
+        facets={facets}
+        advancedCount={advancedCount}
+        onUpdate={update}
+        onUpdateFilters={updateFilters}
+        onReset={resetFilters}
+      />
 
       {state.status === 'error' && (
         <p
