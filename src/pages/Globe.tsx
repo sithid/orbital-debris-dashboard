@@ -39,6 +39,12 @@ const EMPTY_FILTERS = {
   orbitClass: '',
   ownerCode: '',
   country: '',
+  minAltKm: '',
+  maxAltKm: '',
+  minInc: '',
+  maxInc: '',
+  minYear: '',
+  maxYear: '',
 } as const
 
 export default function GlobePage() {

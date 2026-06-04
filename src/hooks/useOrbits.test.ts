@@ -9,6 +9,12 @@ const base: OrbitsQuery = {
   orbitClass: '',
   ownerCode: '',
   country: '',
+  minAltKm: '',
+  maxAltKm: '',
+  minInc: '',
+  maxInc: '',
+  minYear: '',
+  maxYear: '',
 }
 
 describe('buildOrbitsQuery', () => {
@@ -20,9 +26,41 @@ describe('buildOrbitsQuery', () => {
 
   it('omits empty filters', () => {
     const params = new URLSearchParams(buildOrbitsQuery(base))
-    for (const key of ['search', 'objectType', 'orbitClass', 'ownerCode', 'country']) {
+    for (const key of [
+      'search',
+      'objectType',
+      'orbitClass',
+      'ownerCode',
+      'country',
+      'minAltKm',
+      'maxAltKm',
+      'minInc',
+      'maxInc',
+      'minYear',
+      'maxYear',
+    ]) {
       expect(params.has(key)).toBe(false)
     }
+  })
+
+  it('includes range filters that are set', () => {
+    const params = new URLSearchParams(
+      buildOrbitsQuery({
+        ...base,
+        minAltKm: '300',
+        maxAltKm: '600',
+        minInc: '95',
+        maxInc: '105',
+        minYear: '2020',
+        maxYear: '2024',
+      })
+    )
+    expect(params.get('minAltKm')).toBe('300')
+    expect(params.get('maxAltKm')).toBe('600')
+    expect(params.get('minInc')).toBe('95')
+    expect(params.get('maxInc')).toBe('105')
+    expect(params.get('minYear')).toBe('2020')
+    expect(params.get('maxYear')).toBe('2024')
   })
 
   it('includes filters that are set', () => {

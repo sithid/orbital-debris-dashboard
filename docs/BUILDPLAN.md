@@ -2,9 +2,9 @@
 
 _This file is the phased build plan for the project. It's the bridge between `docs/PRD.md` (what to build) + `docs/DESIGN.md` (what it looks like) and the actual code. Re-run the `build-plan` skill whenever reality has diverged from the plan._
 
-> **Status:** v1 shipped; v2 globe complete through Phase 7 (identity/ownership filters + display cap); Phase 8 (geometric/temporal filters) planned
-> **Last updated:** 2026-06-03
-> **Current phase:** Phase 7 complete; Phase 8 (altitude/inclination/launch-year range filters) not started
+> **Status:** v1 shipped; v2 globe complete through Phase 8 (identity/ownership + geometric/temporal filters)
+> **Last updated:** 2026-06-04
+> **Current phase:** Phase 8 complete — globe has the full filter surface (type, orbit class, name, owner, country, altitude, inclination, launch year) + max-orbits cap
 
 > **Architecture note (2026-05-14):** The project was bootstrapped with `npm create cloudflare@latest` using the newer **Workers + Static Assets** model, not Pages Functions. File layout differs from this plan's original wording: API routes live in `worker/index.ts` (a single Worker entrypoint routing `/api/*`), not under `functions/api/*.ts`. Tests use `@cloudflare/vitest-pool-workers` (Vitest 4) with the `cloudflareTest` plugin. Wrangler config is `wrangler.jsonc`. The app lives in the nested directory `orbital-debris-dashboard/` (kept nested for now). Treat the original Pages-Functions file paths in later phases as historical — translate to Worker route handlers inside `worker/`.
 
@@ -314,13 +314,29 @@ That way each phase fits in a focused session — no full-repo loads, no thrashi
 
 ---
 
-### Phase 8 — Globe geometric & temporal filters — v2 (planned)
+### Phase 8 — Globe geometric & temporal range filters — v2
 
 **Goal:** Round out the "other criteria" filters with orbital geometry and launch time.
 
-**Expected scope:** dual-handle range sliders in `GlobeFilters` for **altitude band** (perigee/apogee or SMA), **inclination range**, and **launch year** (JOIN `launch_events`). Same API-param + `buildOrbitsQuery` + facets/range-bounds + test pattern as Phase 7. Decide whether range bounds come from `/api/orbits/facets` (min/max) or are hardcoded sensible ranges.
+**Context to load:** `CLAUDE.md`, `worker/routes/orbits.ts`, `worker/routes/orbitFacets.ts`, `src/components/GlobeFilters.tsx`, `src/pages/Globe.tsx`, `src/hooks/useOrbits.ts`, `schema.sql` (`orbital_data` perigee/apogee, `launch_events`).
 
-**Not started.**
+**Files this phase creates/modifies:** _(actuals, 2026-06-04)_
+- `worker/routes/orbits.ts` — `LEFT JOIN launch_events`; `minAltKm`/`maxAltKm` (altitude **overlap**: `apogee_km >= min AND perigee_km <= max`), `minInc`/`maxInc`, `minYear`/`maxYear` params + `parseFiniteNumber` + an `addRange` helper.
+- `worker/routes/orbitFacets.ts` — added a `bounds` block (`altitudeKm`/`inclinationDeg`/`launchYear` min+max over the candidate set) for the number-input placeholders.
+- `src/hooks/useOrbits.ts` — six range strings on `OrbitsQuery`; `OrbitFacets` gains `bounds`/`RangeBound`/`OrbitBounds`.
+- `src/components/GlobeFilters.tsx` — internal `RangeInputs` (debounced min/max number boxes, placeholders from bounds) reused 3×; Reset/hasActiveFilters extended.
+- `src/pages/Globe.tsx` — six fields added to `EMPTY_FILTERS`.
+
+**Decisions:** UI is **paired min/max number inputs**, not sliders — dependency-free, accessible, and immune to altitude's 5 km–1.37M km span. Bounds come from `/api/orbits/facets`. Altitude uses overlap (orbit passes through the band).
+
+**Tests added:** API altitude (min/max/band-overlap), inclination, launch-year filters; facet `bounds` (candidate-restricted); `buildOrbitsQuery` range params. 63/63 passing.
+
+**Done-when:**
+- [x] Altitude, inclination, and launch-year ranges narrow the globe; empty box = unbounded on that side.
+- [x] Ranges combine (AND) with Phase 7 filters; Reset clears them; no hard reload.
+- [x] `npm test`, `npm run typecheck`, `npm run build` pass.
+
+**Session budget:** 1 session.
 
 ---
 
@@ -344,6 +360,7 @@ That way each phase fits in a focused session — no full-repo loads, no thrashi
 | 2026-06-03 | Phase 6 (v2) | Mobile (`< md`) renders a reduced 1k sample, not a desktop-only banner or 2D fallback | Keeps the globe usable on phones without asking a mobile GPU to draw ~34k instances. Matches PRD §5 "mobile should not break but is not optimized." Added `object_name` to `/api/orbits` for the hover chip; filter state is local (not URL-synced), mirroring the Objects page. |
 | 2026-06-03 | Phase 7 (v2) | Owner/country dropdowns are populated from a new `/api/orbits/facets` endpoint, not hardcoded | 129 distinct owners + 74 countries is far too many to hardcode (the Objects page hardcodes only ~5 types/classes). Facets are restricted to the candidate set so a dropdown never offers a value that returns nothing. Non-cascading (owner choice doesn't shrink the country list) to keep it simple. |
 | 2026-06-03 | Phase 7 (v2) | Expose the existing `sample` param as a "max orbits" slider; raise `MAX_SAMPLE` 10000 → 40000 | Phase 6 claimed the globe rendered the full ~34k but the server silently clamped to 10k — raising the cap makes that true and gives the declutter slider real range. The deterministic sample means lowering the cap shows a stable representative subset. `owner_code` and "owner" are one dimension (code vs. display name) — a single dropdown filtering by `ownerCode`. |
+| 2026-06-04 | Phase 8 (v2) | Range filters use paired min/max **number inputs**, not sliders | HTML has no native dual-thumb range, and altitude spans 5 km–1.37M km, which mis-scales any linear slider. Number inputs are dependency-free, accessible, and let the user type exact values; range bounds from `/api/orbits/facets` are shown as placeholders. Altitude uses **overlap** semantics (`apogee >= min AND perigee <= max`) so a band shows orbits passing through it, not only those fully contained. |
 
 ---
 

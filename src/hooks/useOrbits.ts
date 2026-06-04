@@ -24,6 +24,13 @@ export type OrbitsQuery = {
   orbitClass: string
   ownerCode: string
   country: string
+  // Range filters — empty string means that bound is unset.
+  minAltKm: string
+  maxAltKm: string
+  minInc: string
+  maxInc: string
+  minYear: string
+  maxYear: string
 }
 
 export type OrbitsState =
@@ -40,6 +47,12 @@ export function buildOrbitsQuery(q: OrbitsQuery): string {
   if (q.orbitClass) params.set('orbitClass', q.orbitClass)
   if (q.ownerCode) params.set('ownerCode', q.ownerCode)
   if (q.country) params.set('country', q.country)
+  if (q.minAltKm) params.set('minAltKm', q.minAltKm)
+  if (q.maxAltKm) params.set('maxAltKm', q.maxAltKm)
+  if (q.minInc) params.set('minInc', q.minInc)
+  if (q.maxInc) params.set('maxInc', q.maxInc)
+  if (q.minYear) params.set('minYear', q.minYear)
+  if (q.maxYear) params.set('maxYear', q.maxYear)
   return params.toString()
 }
 
@@ -70,9 +83,24 @@ export function useOrbits(query: OrbitsQuery): OrbitsState {
 }
 
 export type OrbitOwnerFacet = { code: string; name: string }
-export type OrbitFacets = { owners: OrbitOwnerFacet[]; countries: string[] }
+export type RangeBound = { min: number; max: number }
+export type OrbitBounds = {
+  altitudeKm: RangeBound
+  inclinationDeg: RangeBound
+  launchYear: RangeBound
+}
+export type OrbitFacets = {
+  owners: OrbitOwnerFacet[]
+  countries: string[]
+  bounds: OrbitBounds
+}
 
-const EMPTY_FACETS: OrbitFacets = { owners: [], countries: [] }
+const ZERO_BOUND: RangeBound = { min: 0, max: 0 }
+const EMPTY_FACETS: OrbitFacets = {
+  owners: [],
+  countries: [],
+  bounds: { altitudeKm: ZERO_BOUND, inclinationDeg: ZERO_BOUND, launchYear: ZERO_BOUND },
+}
 
 /**
  * Fetch the owner/country dropdown options once. These are high-cardinality

@@ -3,13 +3,16 @@ import { beforeAll, describe, expect, it } from 'vitest'
 
 beforeAll(async () => {
   await env.DB.exec(
-    'CREATE TABLE satellites (norad_id INTEGER PRIMARY KEY, in_orbit INTEGER, object_name TEXT, object_type TEXT, owner_code TEXT);'
+    'CREATE TABLE satellites (norad_id INTEGER PRIMARY KEY, in_orbit INTEGER, object_name TEXT, object_type TEXT, owner_code TEXT, launch_id TEXT);'
   )
   await env.DB.exec(
-    'CREATE TABLE orbital_data (norad_id INTEGER PRIMARY KEY, orbit_class TEXT, semi_major_axis_km REAL, eccentricity REAL, inclination_degrees REAL);'
+    'CREATE TABLE orbital_data (norad_id INTEGER PRIMARY KEY, orbit_class TEXT, semi_major_axis_km REAL, eccentricity REAL, inclination_degrees REAL, perigee_km REAL, apogee_km REAL);'
   )
   await env.DB.exec(
     'CREATE TABLE ownership_operators (owner_code TEXT PRIMARY KEY, owner TEXT, country_operator TEXT);'
+  )
+  await env.DB.exec(
+    'CREATE TABLE launch_events (launch_id TEXT PRIMARY KEY, launch_year INTEGER);'
   )
   await env.DB.batch([
     env.DB.prepare(
@@ -18,45 +21,55 @@ beforeAll(async () => {
     env.DB.prepare(
       "INSERT INTO ownership_operators (owner_code, owner, country_operator) VALUES ('PRC', 'China Aerospace', 'China')"
     ),
+    env.DB.prepare("INSERT INTO launch_events (launch_id, launch_year) VALUES ('OLD', 2000)"),
+    env.DB.prepare("INSERT INTO launch_events (launch_id, launch_year) VALUES ('NEW', 2020)"),
   ])
 
   // 200 in-orbit objects with usable geometry. Deterministic test fixtures:
   //   even id  -> orbit_class LEO, object_type PAYLOAD
   //   odd  id  -> orbit_class MEO, object_type DEBRIS
-  //   id <= 50 -> owner US (USA), else PRC (China)
+  //   id <= 50  -> owner US (USA), else PRC (China)
+  //   id <= 100 -> launch OLD (2000), else NEW (2020)
+  //   perigee_km = id, apogee_km = id + 10, inclination = id % 90
   const batch = []
   for (let id = 1; id <= 200; id++) {
     batch.push(
       env.DB.prepare(
-        'INSERT INTO satellites (norad_id, in_orbit, object_name, object_type, owner_code) VALUES (?, 1, ?, ?, ?)'
-      ).bind(id, `OBJECT ${id}`, id % 2 === 0 ? 'PAYLOAD' : 'DEBRIS', id <= 50 ? 'US' : 'PRC')
+        'INSERT INTO satellites (norad_id, in_orbit, object_name, object_type, owner_code, launch_id) VALUES (?, 1, ?, ?, ?, ?)'
+      ).bind(
+        id,
+        `OBJECT ${id}`,
+        id % 2 === 0 ? 'PAYLOAD' : 'DEBRIS',
+        id <= 50 ? 'US' : 'PRC',
+        id <= 100 ? 'OLD' : 'NEW'
+      )
     )
     batch.push(
       env.DB.prepare(
-        'INSERT INTO orbital_data (norad_id, orbit_class, semi_major_axis_km, eccentricity, inclination_degrees) VALUES (?, ?, ?, ?, ?)'
-      ).bind(id, id % 2 === 0 ? 'LEO' : 'MEO', 7000 + id, 0.01 * (id % 10), id % 90)
+        'INSERT INTO orbital_data (norad_id, orbit_class, semi_major_axis_km, eccentricity, inclination_degrees, perigee_km, apogee_km) VALUES (?, ?, ?, ?, ?, ?, ?)'
+      ).bind(id, id % 2 === 0 ? 'LEO' : 'MEO', 7000 + id, 0.01 * (id % 10), id % 90, id, id + 10)
     )
   }
   // Row 999: null sma — should be filtered out
   batch.push(
     env.DB.prepare(
-      "INSERT INTO satellites (norad_id, in_orbit, object_name, object_type, owner_code) VALUES (999, 1, 'NULL SMA', 'PAYLOAD', 'US')"
+      "INSERT INTO satellites (norad_id, in_orbit, object_name, object_type, owner_code, launch_id) VALUES (999, 1, 'NULL SMA', 'PAYLOAD', 'US', 'OLD')"
     )
   )
   batch.push(
     env.DB.prepare(
-      'INSERT INTO orbital_data (norad_id, orbit_class, semi_major_axis_km, eccentricity, inclination_degrees) VALUES (999, ?, NULL, 0.01, 51.6)'
+      'INSERT INTO orbital_data (norad_id, orbit_class, semi_major_axis_km, eccentricity, inclination_degrees, perigee_km, apogee_km) VALUES (999, ?, NULL, 0.01, 51.6, 500, 510)'
     ).bind('LEO')
   )
   // Row 1000: decayed (in_orbit=0) — excluded by default; included only when inOrbit=0
   batch.push(
     env.DB.prepare(
-      "INSERT INTO satellites (norad_id, in_orbit, object_name, object_type, owner_code) VALUES (1000, 0, 'DECAYED', 'PAYLOAD', 'US')"
+      "INSERT INTO satellites (norad_id, in_orbit, object_name, object_type, owner_code, launch_id) VALUES (1000, 0, 'DECAYED', 'PAYLOAD', 'US', 'NEW')"
     )
   )
   batch.push(
     env.DB.prepare(
-      'INSERT INTO orbital_data (norad_id, orbit_class, semi_major_axis_km, eccentricity, inclination_degrees) VALUES (1000, ?, 7000, 0.01, 51.6)'
+      'INSERT INTO orbital_data (norad_id, orbit_class, semi_major_axis_km, eccentricity, inclination_degrees, perigee_km, apogee_km) VALUES (1000, ?, 7000, 0.01, 51.6, 500, 510)'
     ).bind('LEO')
   )
 
@@ -200,5 +213,47 @@ describe('GET /api/orbits', () => {
     const body = await fetchOrbits('?sample=10000&search=OBJECT%2015&country=USA')
     expect(body.total).toBe(1)
     expect(body.orbits[0].norad_id).toBe(15)
+  })
+
+  it('filters by maximum altitude (perigee_km <= maxAltKm)', async () => {
+    // perigee_km = id, so perigee <= 50 -> ids 1..50
+    const body = await fetchOrbits('?sample=10000&maxAltKm=50')
+    expect(body.total).toBe(50)
+    expect(body.orbits.every((o) => o.norad_id <= 50)).toBe(true)
+  })
+
+  it('filters by minimum altitude (apogee_km >= minAltKm)', async () => {
+    // apogee_km = id + 10, so apogee >= 150 -> id >= 140 -> ids 140..200
+    const body = await fetchOrbits('?sample=10000&minAltKm=150')
+    expect(body.total).toBe(61)
+    expect(body.orbits.every((o) => o.norad_id >= 140)).toBe(true)
+  })
+
+  it('filters by an altitude band using overlap semantics', async () => {
+    // apogee >= 100 (id >= 90) AND perigee <= 120 (id <= 120) -> ids 90..120
+    const body = await fetchOrbits('?sample=10000&minAltKm=100&maxAltKm=120')
+    expect(body.total).toBe(31)
+  })
+
+  it('filters by inclination range', async () => {
+    const body = await fetchOrbits('?sample=10000&minInc=45&maxInc=50')
+    expect(body.total).toBeGreaterThan(0)
+    expect(
+      body.orbits.every(
+        (o) => o.inclination_deg >= 45 && o.inclination_deg <= 50
+      )
+    ).toBe(true)
+  })
+
+  it('filters by launch year (JOIN launch_events)', async () => {
+    // launch NEW (2020) == ids 101..200
+    const recent = await fetchOrbits('?sample=10000&minYear=2020')
+    expect(recent.total).toBe(100)
+    expect(recent.orbits.every((o) => o.norad_id > 100)).toBe(true)
+
+    // launch OLD (2000) == ids 1..100
+    const old = await fetchOrbits('?sample=10000&minYear=2000&maxYear=2010')
+    expect(old.total).toBe(100)
+    expect(old.orbits.every((o) => o.norad_id <= 100)).toBe(true)
   })
 })

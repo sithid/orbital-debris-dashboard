@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import type { OrbitFacets } from '../hooks/useOrbits'
+import type { OrbitFacets, RangeBound } from '../hooks/useOrbits'
 
 // Type / orbit-class option lists mirror src/pages/Objects.tsx. Owner and
 // country are high-cardinality, so they come from the facets endpoint instead.
@@ -17,6 +17,12 @@ export type GlobeFilterValues = {
   ownerCode: string
   country: string
   sample: number
+  minAltKm: string
+  maxAltKm: string
+  minInc: string
+  maxInc: string
+  minYear: string
+  maxYear: string
 }
 
 type Props = {
@@ -25,6 +31,81 @@ type Props = {
   sampleMax: number
   onChange: (patch: Partial<GlobeFilterValues>) => void
   onReset: () => void
+}
+
+// A labelled min/max number-input pair. Holds local state and debounces upward
+// so typing doesn't refetch on every keystroke; syncs back from props on Reset.
+function RangeInputs({
+  label,
+  unit,
+  min,
+  max,
+  placeholder,
+  step,
+  onCommit,
+}: {
+  label: string
+  unit?: string
+  min: string
+  max: string
+  placeholder: RangeBound
+  step?: number
+  onCommit: (next: { min: string; max: string }) => void
+}) {
+  const [localMin, setLocalMin] = useState(min)
+  const [localMax, setLocalMax] = useState(max)
+  const onCommitRef = useRef(onCommit)
+  useEffect(() => {
+    onCommitRef.current = onCommit
+  })
+
+  useEffect(() => setLocalMin(min), [min])
+  useEffect(() => setLocalMax(max), [max])
+
+  useEffect(() => {
+    if (localMin === min && localMax === max) return
+    const t = setTimeout(
+      () => onCommitRef.current({ min: localMin.trim(), max: localMax.trim() }),
+      250
+    )
+    return () => clearTimeout(t)
+  }, [localMin, localMax, min, max])
+
+  const inputClass = `${fieldClass} px-2 [appearance:textfield]`
+
+  return (
+    <div>
+      <span className={labelClass}>
+        {label}
+        {unit ? <span className="lowercase"> ({unit})</span> : null}
+      </span>
+      <div className="mt-1 flex items-center gap-2">
+        <input
+          type="number"
+          inputMode="numeric"
+          step={step}
+          value={localMin}
+          onChange={(e) => setLocalMin(e.target.value)}
+          placeholder={`${placeholder.min}`}
+          className={inputClass}
+          aria-label={`Minimum ${label}`}
+        />
+        <span aria-hidden className="text-muted">
+          –
+        </span>
+        <input
+          type="number"
+          inputMode="numeric"
+          step={step}
+          value={localMax}
+          onChange={(e) => setLocalMax(e.target.value)}
+          placeholder={`${placeholder.max}`}
+          className={inputClass}
+          aria-label={`Maximum ${label}`}
+        />
+      </div>
+    </div>
+  )
 }
 
 export function GlobeFilters({ values, facets, sampleMax, onChange, onReset }: Props) {
@@ -52,7 +133,13 @@ export function GlobeFilters({ values, facets, sampleMax, onChange, onReset }: P
     values.objectType !== '' ||
     values.orbitClass !== '' ||
     values.ownerCode !== '' ||
-    values.country !== ''
+    values.country !== '' ||
+    values.minAltKm !== '' ||
+    values.maxAltKm !== '' ||
+    values.minInc !== '' ||
+    values.maxInc !== '' ||
+    values.minYear !== '' ||
+    values.maxYear !== ''
 
   return (
     <div className="pointer-events-auto rounded-lg border border-border bg-surface/85 p-4 shadow-lg backdrop-blur">
@@ -149,6 +236,34 @@ export function GlobeFilters({ values, facets, sampleMax, onChange, onReset }: P
             ))}
           </select>
         </label>
+
+        <RangeInputs
+          label="Altitude"
+          unit="km"
+          min={values.minAltKm}
+          max={values.maxAltKm}
+          placeholder={facets.bounds.altitudeKm}
+          onCommit={({ min, max }) => onChange({ minAltKm: min, maxAltKm: max })}
+        />
+
+        <RangeInputs
+          label="Inclination"
+          unit="°"
+          step={1}
+          min={values.minInc}
+          max={values.maxInc}
+          placeholder={facets.bounds.inclinationDeg}
+          onCommit={({ min, max }) => onChange({ minInc: min, maxInc: max })}
+        />
+
+        <RangeInputs
+          label="Launch year"
+          step={1}
+          min={values.minYear}
+          max={values.maxYear}
+          placeholder={facets.bounds.launchYear}
+          onCommit={({ min, max }) => onChange({ minYear: min, maxYear: max })}
+        />
 
         <label className="block">
           <span className={labelClass}>

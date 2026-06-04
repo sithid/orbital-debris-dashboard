@@ -3,9 +3,21 @@ export interface OrbitOwnerFacet {
   name: string
 }
 
+export interface RangeBound {
+  min: number
+  max: number
+}
+
+export interface OrbitBounds {
+  altitudeKm: RangeBound
+  inclinationDeg: RangeBound
+  launchYear: RangeBound
+}
+
 export interface OrbitFacets {
   owners: OrbitOwnerFacet[]
   countries: string[]
+  bounds: OrbitBounds
 }
 
 // Same candidate set the globe renders: in-orbit objects with usable geometry.
@@ -51,8 +63,40 @@ export async function getOrbitFacets(env: Env): Promise<OrbitFacets> {
      ORDER BY country COLLATE NOCASE`
   ).all<{ country: string }>()
 
+  // Min/max for the range-filter number inputs (altitude / inclination / year).
+  const bounds = await env.DB.prepare(
+    `SELECT
+       MIN(o.perigee_km)          AS alt_min,
+       MAX(o.apogee_km)           AS alt_max,
+       MIN(o.inclination_degrees) AS inc_min,
+       MAX(o.inclination_degrees) AS inc_max,
+       MIN(le.launch_year)        AS year_min,
+       MAX(le.launch_year)        AS year_max
+     FROM satellites s
+     JOIN orbital_data o ON o.norad_id = s.norad_id
+     LEFT JOIN launch_events le ON le.launch_id = s.launch_id
+     WHERE ${CANDIDATE}`
+  ).first<{
+    alt_min: number | null
+    alt_max: number | null
+    inc_min: number | null
+    inc_max: number | null
+    year_min: number | null
+    year_max: number | null
+  }>()
+
+  const bound = (min: number | null | undefined, max: number | null | undefined): RangeBound => ({
+    min: Math.floor(min ?? 0),
+    max: Math.ceil(max ?? 0),
+  })
+
   return {
     owners: owners.results ?? [],
     countries: (countries.results ?? []).map((r) => r.country),
+    bounds: {
+      altitudeKm: bound(bounds?.alt_min, bounds?.alt_max),
+      inclinationDeg: bound(bounds?.inc_min, bounds?.inc_max),
+      launchYear: bound(bounds?.year_min, bounds?.year_max),
+    },
   }
 }

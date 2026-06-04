@@ -33,6 +33,33 @@ function parseNonNegInt(value: string | null, fallback: number): number {
   return n
 }
 
+// Returns a finite number or null. A bad/empty range bound simply drops that
+// side of the filter rather than erroring.
+function parseFiniteNumber(value: string | null): number | null {
+  if (value == null || value.trim() === '') return null
+  const n = Number(value)
+  return Number.isFinite(n) ? n : null
+}
+
+// Pushes `column >= min` / `column <= max` predicates for whichever bounds are set.
+function addRange(
+  where: string[],
+  bindings: unknown[],
+  minColumn: string,
+  minValue: number | null,
+  maxColumn: string,
+  maxValue: number | null
+): void {
+  if (minValue !== null) {
+    where.push(`${minColumn} >= ?`)
+    bindings.push(minValue)
+  }
+  if (maxValue !== null) {
+    where.push(`${maxColumn} <= ?`)
+    bindings.push(maxValue)
+  }
+}
+
 export async function getOrbits(env: Env, url: URL): Promise<OrbitsResponse> {
   const params = url.searchParams
   const sample = parsePositiveInt(params.get('sample'), DEFAULT_SAMPLE, MAX_SAMPLE)
@@ -92,14 +119,46 @@ export async function getOrbits(env: Env, url: URL): Promise<OrbitsResponse> {
     bindings.push(country)
   }
 
+  // Altitude band — overlap semantics: an orbit is in the band if it passes
+  // through it, i.e. apogee >= minAlt and perigee <= maxAlt.
+  addRange(
+    where,
+    bindings,
+    'o.apogee_km',
+    parseFiniteNumber(params.get('minAltKm')),
+    'o.perigee_km',
+    parseFiniteNumber(params.get('maxAltKm'))
+  )
+
+  // Inclination range.
+  addRange(
+    where,
+    bindings,
+    'o.inclination_degrees',
+    parseFiniteNumber(params.get('minInc')),
+    'o.inclination_degrees',
+    parseFiniteNumber(params.get('maxInc'))
+  )
+
+  // Launch-year range (resolved through launch_events).
+  addRange(
+    where,
+    bindings,
+    'le.launch_year',
+    parseFiniteNumber(params.get('minYear')),
+    'le.launch_year',
+    parseFiniteNumber(params.get('maxYear'))
+  )
+
   const whereClause = where.join(' AND ')
 
-  // ownership_operators is LEFT-joined so the country filter (and future
-  // owner-name needs) resolve without dropping objects that lack an operator row.
+  // ownership_operators / launch_events are LEFT-joined so the country and
+  // launch-year filters resolve without dropping objects that lack those rows.
   const fromClause = `
     FROM satellites s
     JOIN orbital_data o ON o.norad_id = s.norad_id
-    LEFT JOIN ownership_operators op ON op.owner_code = s.owner_code`
+    LEFT JOIN ownership_operators op ON op.owner_code = s.owner_code
+    LEFT JOIN launch_events le ON le.launch_id = s.launch_id`
 
   const totalRow = await env.DB.prepare(
     `SELECT COUNT(*) AS total
