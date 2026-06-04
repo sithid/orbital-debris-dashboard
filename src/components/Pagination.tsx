@@ -1,3 +1,5 @@
+import { Button } from './atoms/Button'
+
 type PaginationProps = {
   page: number
   pageSize: number
@@ -26,25 +28,15 @@ export function Pagination({ page, pageSize, total, onPageChange }: PaginationPr
         <span className="font-mono text-fg">{numberFormat.format(total)}</span>
       </p>
       <div className="flex items-center gap-2">
-        <button
-          type="button"
-          onClick={() => onPageChange(page - 1)}
-          disabled={prevDisabled}
-          className="rounded-lg border border-border px-3 py-1.5 text-fg hover:border-cyan focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:border-border"
-        >
+        <Button type="button" variant="secondary" size="sm" onClick={() => onPageChange(page - 1)} disabled={prevDisabled}>
           Previous
-        </button>
+        </Button>
         <span className="font-mono text-fg">
           {numberFormat.format(page)} / {numberFormat.format(totalPages)}
         </span>
-        <button
-          type="button"
-          onClick={() => onPageChange(page + 1)}
-          disabled={nextDisabled}
-          className="rounded-lg border border-border px-3 py-1.5 text-fg hover:border-cyan focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:border-border"
-        >
+        <Button type="button" variant="secondary" size="sm" onClick={() => onPageChange(page + 1)} disabled={nextDisabled}>
           Next
-        </button>
+        </Button>
       </div>
     </nav>
   )

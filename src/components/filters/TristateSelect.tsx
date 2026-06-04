@@ -1,4 +1,5 @@
-import { fieldClass, labelClass } from './fieldStyles'
+import { Eyebrow } from '../atoms/Eyebrow'
+import { Select } from '../atoms/Select'
 
 type Option = { value: string; label: string }
 
@@ -18,11 +19,11 @@ export function TristateSelect({
 }) {
   return (
     <label className="block">
-      <span className={labelClass}>{label}</span>
-      <select
+      <Eyebrow>{label}</Eyebrow>
+      <Select
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        className={`${fieldClass} mt-1`}
+        className="mt-1"
         aria-label={label}
       >
         {options.map((o) => (
@@ -30,7 +31,7 @@ export function TristateSelect({
             {o.label}
           </option>
         ))}
-      </select>
+      </Select>
     </label>
   )
 }

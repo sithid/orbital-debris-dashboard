@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
 import type { CommonFilters } from '../lib/filterParams'
 import type { Facets } from '../hooks/useFacets'
-import { fieldClass, labelClass } from './filters/fieldStyles'
+import { Eyebrow } from './atoms/Eyebrow'
+import { TextInput } from './atoms/TextInput'
 import { FacetSelect } from './filters/FacetSelect'
 import { RangeInputs } from './filters/RangeInputs'
 import { TristateSelect } from './filters/TristateSelect'
@@ -85,13 +86,12 @@ export function GlobeFilters({ values, facets, sampleMax, onChange, onReset }: P
       <div className="mt-3 space-y-3">
         <label className="block">
           <span className="sr-only">Search by name or NORAD ID</span>
-          <input
+          <TextInput
             type="search"
             inputMode="search"
             placeholder="Search name or NORAD ID…"
             value={searchInput}
             onChange={(e) => setSearchInput(e.target.value)}
-            className={fieldClass}
             aria-label="Search by name or NORAD ID"
           />
         </label>
@@ -165,10 +165,10 @@ export function GlobeFilters({ values, facets, sampleMax, onChange, onReset }: P
         />
 
         <label className="block">
-          <span className={labelClass}>
+          <Eyebrow as="span">
             Max orbits:{' '}
             <span className="font-mono text-fg">{values.sample.toLocaleString()}</span>
-          </span>
+          </Eyebrow>
           <input
             type="range"
             min={500}

@@ -1,4 +1,6 @@
 import type { ReactNode } from 'react'
+import { Card } from './atoms/Card'
+import { Eyebrow } from './atoms/Eyebrow'
 
 export type DetailField = {
   label: string
@@ -24,12 +26,14 @@ export function formatValue(value: string | number | null | undefined): ReactNod
 
 export function DetailSection({ title, fields }: DetailSectionProps) {
   return (
-    <section className="rounded-lg border border-border bg-surface p-6 shadow-lg">
-      <h2 className="text-xs uppercase tracking-widest text-muted">{title}</h2>
+    <Card as="section" className="p-6">
+      <Eyebrow as="h2">{title}</Eyebrow>
       <dl className="mt-4 grid gap-x-6 gap-y-3 sm:grid-cols-2">
         {fields.map((f) => (
           <div key={f.label} className="flex flex-col">
-            <dt className="text-xs uppercase tracking-widest text-faint">{f.label}</dt>
+            <Eyebrow as="dt" tone="faint">
+              {f.label}
+            </Eyebrow>
             <dd
               className={
                 f.mono
@@ -42,6 +46,6 @@ export function DetailSection({ title, fields }: DetailSectionProps) {
           </div>
         ))}
       </dl>
-    </section>
+    </Card>
   )
 }

@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import type { RangeBound } from '../../hooks/useFacets'
-import { fieldClass, labelClass } from './fieldStyles'
+import { fieldBase } from '../atoms/field'
+import { Eyebrow } from '../atoms/Eyebrow'
 
 // A labelled min/max number-input pair. Holds local state and debounces upward
 // so typing doesn't refetch on every keystroke; syncs back from props on Reset.
@@ -40,14 +41,14 @@ export function RangeInputs({
     return () => clearTimeout(t)
   }, [localMin, localMax, min, max])
 
-  const inputClass = `${fieldClass} px-2 [appearance:textfield]`
+  const inputClass = `${fieldBase} px-2 py-2 [appearance:textfield]`
 
   return (
     <div>
-      <span className={labelClass}>
+      <Eyebrow as="span">
         {label}
         {unit ? <span className="lowercase"> ({unit})</span> : null}
-      </span>
+      </Eyebrow>
       <div className="mt-1 flex items-center gap-2">
         <input
           type="number"

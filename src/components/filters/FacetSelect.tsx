@@ -1,4 +1,4 @@
-import { fieldClass } from './fieldStyles'
+import { Select } from '../atoms/Select'
 
 type Option = { value: string; label: string }
 
@@ -20,19 +20,14 @@ export function FacetSelect({
   return (
     <label className="block">
       <span className="sr-only">{label}</span>
-      <select
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        className={fieldClass}
-        aria-label={label}
-      >
+      <Select value={value} onChange={(e) => onChange(e.target.value)} aria-label={label}>
         <option value="">{allLabel}</option>
         {options.map((o) => (
           <option key={o.value} value={o.value}>
             {o.label}
           </option>
         ))}
-      </select>
+      </Select>
     </label>
   )
 }

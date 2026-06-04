@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { MagnifyingGlassIcon } from '@heroicons/react/24/outline'
+import { fieldBase } from './atoms/field'
 
 type SearchBarProps = {
   value: string
@@ -33,7 +34,7 @@ export function SearchBar({ value, onChange, placeholder }: SearchBarProps) {
         value={local}
         onChange={(e) => setLocal(e.target.value)}
         placeholder={placeholder ?? 'Search by name or NORAD ID'}
-        className="w-full rounded-lg border border-border bg-surface py-3 pl-10 pr-4 text-sm text-fg placeholder:text-faint focus:border-cyan focus:outline-none focus:ring-2 focus:ring-cyan/40"
+        className={`${fieldBase} py-3 pl-10 pr-4`}
       />
     </label>
   )

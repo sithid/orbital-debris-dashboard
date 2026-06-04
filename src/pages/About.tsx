@@ -1,9 +1,11 @@
 import { Link } from 'react-router-dom'
+import { buttonClasses } from '../components/atoms/Button'
+import { Eyebrow } from '../components/atoms/Eyebrow'
 
 export default function About() {
   return (
     <section className="mx-auto max-w-4xl px-8 py-12">
-      <p className="text-xs uppercase tracking-widest text-muted">About</p>
+      <Eyebrow>About</Eyebrow>
       <h1 className="mt-2 text-3xl font-semibold text-fg md:text-4xl">
         About this dashboard
       </h1>
@@ -16,9 +18,9 @@ export default function About() {
 
       <div className="mt-10 space-y-8">
         <section>
-          <h2 className="text-xs uppercase tracking-widest text-muted">
+          <Eyebrow as="h2">
             Data sources
-          </h2>
+          </Eyebrow>
           <ul className="mt-3 space-y-3 text-fg">
             <li>
               <span className="font-semibold text-cyan">SATCAT</span> — the
@@ -34,9 +36,9 @@ export default function About() {
         </section>
 
         <section>
-          <h2 className="text-xs uppercase tracking-widest text-muted">
+          <Eyebrow as="h2">
             Methodology
-          </h2>
+          </Eyebrow>
           <p className="mt-3 max-w-prose text-fg">
             Records are merged on NORAD ID. Where SATCAT and UCS disagree,
             SATCAT wins for orbital and identification fields and UCS wins for
@@ -51,9 +53,9 @@ export default function About() {
         </section>
 
         <section>
-          <h2 className="text-xs uppercase tracking-widest text-muted">
+          <Eyebrow as="h2">
             Scope of v1
-          </h2>
+          </Eyebrow>
           <ul className="mt-3 space-y-2 text-fg">
             <li>Read-only browsing, searching, and filtering of the catalog.</li>
             <li>Per-object detail pages with identification, orbital, ownership, launch, and risk fields.</li>
@@ -65,9 +67,9 @@ export default function About() {
         </section>
 
         <section>
-          <h2 className="text-xs uppercase tracking-widest text-muted">
+          <Eyebrow as="h2">
             About the globe
-          </h2>
+          </Eyebrow>
           <p className="mt-3 max-w-prose text-fg">
             The <span className="font-semibold text-cyan">/globe</span> view
             draws each object as a tilted ellipse derived from its semi-major
@@ -94,9 +96,9 @@ export default function About() {
         </section>
 
         <section>
-          <h2 className="text-xs uppercase tracking-widest text-muted">
+          <Eyebrow as="h2">
             Project context
-          </h2>
+          </Eyebrow>
           <p className="mt-3 max-w-prose text-fg">
             Built on Cloudflare Workers + D1 with a React/Vite frontend served
             as static assets from the same Worker. Source code and issues live
@@ -106,10 +108,7 @@ export default function About() {
       </div>
 
       <div className="mt-12">
-        <Link
-          to="/objects"
-          className="inline-block rounded-lg bg-gold px-5 py-3 text-sm font-semibold text-background hover:bg-gold-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan"
-        >
+        <Link to="/objects" className={buttonClasses('primary', 'md', 'font-semibold')}>
           Browse objects
         </Link>
       </div>

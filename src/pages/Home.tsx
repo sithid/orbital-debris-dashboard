@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { StatCard } from '../components/StatCard'
+import { buttonClasses } from '../components/atoms/Button'
+import { Eyebrow } from '../components/atoms/Eyebrow'
 
 type Stats = { total: number; inOrbit: number; zombie: number }
 
@@ -36,9 +38,7 @@ export default function Home() {
   return (
     <section className="mx-auto grid max-w-6xl gap-12 px-8 py-16 md:grid-cols-2 md:items-center">
       <div>
-        <p className="text-xs uppercase tracking-widest text-muted">
-          Orbital debris dashboard
-        </p>
+        <Eyebrow>Orbital debris dashboard</Eyebrow>
         <h1 className="mt-3 text-4xl font-semibold text-fg md:text-5xl">
           Explore every tracked object in low Earth orbit.
         </h1>
@@ -48,16 +48,10 @@ export default function Home() {
           and drill into the full profile for any object.
         </p>
         <div className="mt-8 flex flex-wrap gap-3">
-          <Link
-            to="/objects"
-            className="rounded-lg bg-gold px-5 py-3 text-sm font-semibold text-background hover:bg-gold-hover"
-          >
+          <Link to="/objects" className={buttonClasses('primary', 'md', 'font-semibold')}>
             Browse objects
           </Link>
-          <Link
-            to="/about"
-            className="rounded-lg border border-border px-5 py-3 text-sm font-semibold text-fg hover:border-cyan"
-          >
+          <Link to="/about" className={buttonClasses('secondary', 'md', 'font-semibold')}>
             About the data
           </Link>
         </div>

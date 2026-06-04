@@ -8,6 +8,8 @@ import { SearchBar } from '../components/SearchBar'
 import { FacetSelect } from '../components/filters/FacetSelect'
 import { RangeInputs } from '../components/filters/RangeInputs'
 import { TristateSelect } from '../components/filters/TristateSelect'
+import { Badge } from '../components/atoms/Badge'
+import { Eyebrow } from '../components/atoms/Eyebrow'
 import { useFacets } from '../hooks/useFacets'
 import {
   countActiveFilters,
@@ -69,14 +71,7 @@ export default function Objects() {
         key: 'is_zombie',
         header: 'Zombie',
         sortable: false,
-        render: (r) =>
-          r.is_zombie === 1 ? (
-            <span className="rounded bg-warning/15 px-2 py-0.5 text-xs font-medium text-warning">
-              Zombie
-            </span>
-          ) : (
-            dash
-          ),
+        render: (r) => (r.is_zombie === 1 ? <Badge variant="warning">Zombie</Badge> : dash),
       },
     ],
     []
@@ -119,7 +114,7 @@ export default function Objects() {
   return (
     <section className="mx-auto max-w-7xl px-8 py-10">
       <header className="mb-6">
-        <p className="text-xs uppercase tracking-widest text-muted">Catalog</p>
+        <Eyebrow>Catalog</Eyebrow>
         <h1 className="mt-2 text-3xl font-semibold text-fg">Objects</h1>
         <p className="mt-2 max-w-prose text-muted">
           Browse every tracked satellite and debris object. Search by name or NORAD ID, filter by
@@ -156,9 +151,9 @@ export default function Objects() {
                 />
                 More filters
                 {advancedCount > 0 && (
-                  <span className="rounded-full bg-cyan/20 px-2 text-xs font-medium text-cyan">
+                  <Badge variant="accent" className="rounded-full">
                     {advancedCount}
-                  </span>
+                  </Badge>
                 )}
               </DisclosureButton>
               {advancedCount > 0 && (
