@@ -3,16 +3,22 @@ import { beforeAll, describe, expect, it } from 'vitest'
 
 beforeAll(async () => {
   await env.DB.exec(
-    'CREATE TABLE satellites (norad_id INTEGER PRIMARY KEY, in_orbit INTEGER);'
+    'CREATE TABLE satellites (norad_id INTEGER PRIMARY KEY, in_orbit INTEGER, object_name TEXT, object_type TEXT, owner_code TEXT);'
   )
   await env.DB.exec(
     'CREATE TABLE orbital_data (norad_id INTEGER PRIMARY KEY, orbit_class TEXT, semi_major_axis_km REAL, eccentricity REAL, inclination_degrees REAL);'
   )
 
+  // 200 in-orbit objects with usable geometry. Deterministic test fixtures:
+  //   even id  -> orbit_class LEO, object_type PAYLOAD
+  //   odd  id  -> orbit_class MEO, object_type DEBRIS
+  //   id <= 50 -> owner US, else PRC
   const batch = []
   for (let id = 1; id <= 200; id++) {
     batch.push(
-      env.DB.prepare('INSERT INTO satellites (norad_id, in_orbit) VALUES (?, 1)').bind(id)
+      env.DB.prepare(
+        'INSERT INTO satellites (norad_id, in_orbit, object_name, object_type, owner_code) VALUES (?, 1, ?, ?, ?)'
+      ).bind(id, `OBJECT ${id}`, id % 2 === 0 ? 'PAYLOAD' : 'DEBRIS', id <= 50 ? 'US' : 'PRC')
     )
     batch.push(
       env.DB.prepare(
@@ -22,16 +28,20 @@ beforeAll(async () => {
   }
   // Row 999: null sma — should be filtered out
   batch.push(
-    env.DB.prepare('INSERT INTO satellites (norad_id, in_orbit) VALUES (999, 1)')
+    env.DB.prepare(
+      "INSERT INTO satellites (norad_id, in_orbit, object_name, object_type, owner_code) VALUES (999, 1, 'NULL SMA', 'PAYLOAD', 'US')"
+    )
   )
   batch.push(
     env.DB.prepare(
       'INSERT INTO orbital_data (norad_id, orbit_class, semi_major_axis_km, eccentricity, inclination_degrees) VALUES (999, ?, NULL, 0.01, 51.6)'
     ).bind('LEO')
   )
-  // Row 1000: decayed (in_orbit=0) — should be filtered out
+  // Row 1000: decayed (in_orbit=0) — excluded by default; included only when inOrbit=0
   batch.push(
-    env.DB.prepare('INSERT INTO satellites (norad_id, in_orbit) VALUES (1000, 0)')
+    env.DB.prepare(
+      "INSERT INTO satellites (norad_id, in_orbit, object_name, object_type, owner_code) VALUES (1000, 0, 'DECAYED', 'PAYLOAD', 'US')"
+    )
   )
   batch.push(
     env.DB.prepare(
@@ -45,6 +55,7 @@ beforeAll(async () => {
 type OrbitsResp = {
   orbits: Array<{
     norad_id: number
+    object_name: string | null
     sma_km: number
     eccentricity: number
     inclination_deg: number
@@ -72,6 +83,7 @@ describe('GET /api/orbits', () => {
     })
     expect(body.orbits[0]).toMatchObject({
       norad_id: expect.any(Number),
+      object_name: expect.any(String),
       sma_km: expect.any(Number),
       eccentricity: expect.any(Number),
       inclination_deg: expect.any(Number),
@@ -108,5 +120,45 @@ describe('GET /api/orbits', () => {
   it('clamps oversized sample to MAX_SAMPLE', async () => {
     const body = await fetchOrbits('?sample=99999')
     expect(body.sample).toBe(10000)
+  })
+
+  it('filters by objectType', async () => {
+    const body = await fetchOrbits('?sample=10000&objectType=PAYLOAD&inOrbit=1')
+    // PAYLOAD == even ids; 100 of them in 1..200
+    expect(body.total).toBe(100)
+    expect(body.orbits).toHaveLength(100)
+    expect(body.orbits.every((o) => o.norad_id % 2 === 0)).toBe(true)
+  })
+
+  it('filters by orbitClass', async () => {
+    const body = await fetchOrbits('?sample=10000&orbitClass=LEO')
+    expect(body.total).toBe(100)
+    expect(body.orbits.every((o) => o.orbit_class === 'LEO')).toBe(true)
+  })
+
+  it('filters by ownerCode', async () => {
+    const body = await fetchOrbits('?sample=10000&ownerCode=US')
+    // owner US == ids 1..50, all in-orbit with usable geometry
+    expect(body.total).toBe(50)
+    expect(body.orbits.every((o) => o.norad_id <= 50)).toBe(true)
+  })
+
+  it('combines filters with AND', async () => {
+    // PAYLOAD (even) AND owner US (id<=50) -> ids 2,4,...,50 == 25 rows
+    const body = await fetchOrbits('?sample=10000&objectType=PAYLOAD&ownerCode=US')
+    expect(body.total).toBe(25)
+  })
+
+  it('defaults to in-orbit only, excluding decayed objects', async () => {
+    const body = await fetchOrbits('?sample=10000')
+    expect(body.total).toBe(200)
+    expect(body.orbits.find((o) => o.norad_id === 1000)).toBeUndefined()
+  })
+
+  it('includes decayed objects when inOrbit=0', async () => {
+    const body = await fetchOrbits('?sample=10000&inOrbit=0')
+    // Only row 1000 is decayed and has usable geometry
+    expect(body.total).toBe(1)
+    expect(body.orbits[0].norad_id).toBe(1000)
   })
 })

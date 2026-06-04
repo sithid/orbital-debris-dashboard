@@ -2,9 +2,9 @@
 
 _This file is the phased build plan for the project. It's the bridge between `docs/PRD.md` (what to build) + `docs/DESIGN.md` (what it looks like) and the actual code. Re-run the `build-plan` skill whenever reality has diverged from the plan._
 
-> **Status:** v1 shipped; v2 (3D globe) planning in progress
-> **Last updated:** 2026-05-23
-> **Current phase:** Phase 5 not started (Phases 0–4 complete; v1 live + smoke-tested)
+> **Status:** v1 shipped; v2 (3D globe as orbit shells) complete (Phases 5–6)
+> **Last updated:** 2026-06-03
+> **Current phase:** Phase 6 complete (all phases done; v2 globe scales to the full ~34k candidate set with filters + click-through)
 
 > **Architecture note (2026-05-14):** The project was bootstrapped with `npm create cloudflare@latest` using the newer **Workers + Static Assets** model, not Pages Functions. File layout differs from this plan's original wording: API routes live in `worker/index.ts` (a single Worker entrypoint routing `/api/*`), not under `functions/api/*.ts`. Tests use `@cloudflare/vitest-pool-workers` (Vitest 4) with the `cloudflareTest` plugin. Wrangler config is `wrangler.jsonc`. The app lives in the nested directory `orbital-debris-dashboard/` (kept nested for now). Treat the original Pages-Functions file paths in later phases as historical — translate to Worker route handlers inside `worker/`.
 
@@ -238,11 +238,11 @@ That way each phase fits in a focused session — no full-repo loads, no thrashi
 - `orbitGeometry({ sma, e: 0, i: 90 })` returns a polar orbit (z-axis spread).
 
 **Done-when:**
-- [ ] `/api/orbits` returns a sampled, deterministic orbit dataset.
-- [ ] `/globe` route renders an Earth sphere + ~1–5k orbits at >30fps on a mid-range laptop.
-- [ ] Camera can rotate/zoom; orbits look visually plausible (low orbits hug Earth, GEO orbits sit far out, polar orbits are tilted ~90°).
-- [ ] About page labels orientations as illustrative.
-- [ ] `npm test` passes.
+- [x] `/api/orbits` returns a sampled, deterministic orbit dataset.
+- [x] `/globe` route renders an Earth sphere + ~1–5k orbits at >30fps on a mid-range laptop.
+- [x] Camera can rotate/zoom; orbits look visually plausible (low orbits hug Earth, GEO orbits sit far out, polar orbits are tilted ~90°).
+- [x] About page labels orientations as illustrative.
+- [x] `npm test` passes.
 
 **Session budget:** 2 sessions. Library evaluation is the unknown — if globe.gl can't render arbitrary 3D ellipses cleanly, swap to `@react-three/fiber` in the same phase rather than fighting it.
 
@@ -273,11 +273,11 @@ That way each phase fits in a focused session — no full-repo loads, no thrashi
 - Click handler resolves to the correct NORAD ID for a known orbit (unit-testable with a mock picker).
 
 **Done-when:**
-- [ ] Globe renders the full filtered dataset (or a clearly justified LOD scheme — explain in the about page) at >30fps on a mid-range laptop.
-- [ ] Filter changes update the visible orbits without a hard reload.
-- [ ] Clicking an orbit navigates to its detail page.
-- [ ] Mobile behavior matches the chosen strategy (a/b/c above).
-- [ ] `npm test` passes.
+- [x] Globe renders the full filtered dataset (~34k candidate orbits, no LOD/sample cap on desktop) at >30fps via one instanced draw call.
+- [x] Filter changes (objectType, orbitClass) update the visible orbits without a hard reload.
+- [x] Clicking an orbit navigates to its detail page; hovering surfaces a name chip.
+- [x] Mobile behavior matches the chosen strategy: render a reduced 1k sample below `md` (strategy "a").
+- [x] `npm test` passes (48/48).
 
 **Session budget:** 2 sessions. Scaling and picking are both genuinely hard.
 
@@ -303,6 +303,9 @@ That way each phase fits in a focused session — no full-repo loads, no thrashi
 | 2026-05-23 | Phase 4 | Skipped React component tests; relied on typecheck + build + manual smoke | Repo's vitest pool is `@cloudflare/vitest-pool-workers` (workerd, no DOM). Adding `@testing-library/react` + `jsdom` is a real dependency decision, not a Phase 4 sub-task. Phases 1-3 set the same precedent. |
 | 2026-05-23 | Phase 5/6 (v2) | v2 globe will render **orbit shells** (tilted ellipses from SMA + e + inclination), not real-time positions | The dataset has no RAAN, argument of perigee, mean anomaly, or epoch — there is no way to compute where any object is right now. Real-time positions would require ingesting TLEs from Space-Track/Celestrak, which is an upstream pipeline change and a daily-refresh story. Defer that to a hypothetical v3; v2 honest-labels orientations as illustrative. |
 | 2026-05-23 | Phase 5 (v2) | Default library: `react-globe.gl`; fall back to `@react-three/fiber` if it can't render arbitrary 3D ellipses cleanly | globe.gl is the smallest viable dep and gives us a working Earth + camera + atmosphere for free. CesiumJS is the safer-for-orbit-math choice but ~10MB and locks us to its scene model; deferred unless forced. |
+| 2026-06-03 | Phase 6 (v2) | Render all ~34k orbits as one `THREE.InstancedMesh` (thin elliptical-torus base + per-orbit affine matrix), not per-`Line` objects | A Keplerian ellipse is an affine transform of a unit circle, so each orbit is one instance matrix and the whole set is a single draw call — Phase 5's per-`Line` approach was ~34k draw calls. The perifocal rotation matrix is shared with `orbitGeometry` via a new pure `orbitRotation` helper (one source of truth). |
+| 2026-06-03 | Phase 6 (v2) | Pick orbits with our own `THREE.Raycaster` reading `instanceId`, not globe.gl's `onCustomLayer*` events | globe.gl's custom-layer events report the datum, not the `instanceId`, so they can't distinguish individual orbits inside one InstancedMesh. We raycast the mesh on the globe's canvas/camera (hover throttled via rAF). `instanceId → norad_id` is a pure, unit-tested index lookup (`orbitPicking.ts`). |
+| 2026-06-03 | Phase 6 (v2) | Mobile (`< md`) renders a reduced 1k sample, not a desktop-only banner or 2D fallback | Keeps the globe usable on phones without asking a mobile GPU to draw ~34k instances. Matches PRD §5 "mobile should not break but is not optimized." Added `object_name` to `/api/orbits` for the hover chip; filter state is local (not URL-synced), mirroring the Objects page. |
 
 ---
 

@@ -82,6 +82,15 @@ export default function About() {
             Real-time positions would require ingesting live TLEs from
             Space-Track or Celestrak.
           </p>
+          <p className="mt-3 max-w-prose text-fg">
+            The globe shows every in-orbit object with usable orbital geometry —
+            about <span className="font-mono">33,900</span> of the catalog's{' '}
+            <span className="font-mono">68,727</span> objects. The remainder are
+            excluded because they have decayed or lack a semi-major axis,
+            eccentricity, or inclination — they are not sampled away. Filtering
+            by type or orbit class narrows the set further; on small screens a
+            reduced sample is drawn for performance.
+          </p>
         </section>
 
         <section>

@@ -1,47 +1,60 @@
 import { useEffect, useState } from 'react'
-import { OrbitGlobe, type OrbitDatum } from '../components/OrbitGlobe'
+import { useNavigate } from 'react-router-dom'
+import { OrbitGlobe } from '../components/OrbitGlobe'
+import { GlobeFilters } from '../components/GlobeFilters'
+import { useOrbits, type OrbitDatum, type OrbitsQuery } from '../hooks/useOrbits'
 
-type OrbitsResponse = {
-  orbits: OrbitDatum[]
-  sample: number
-  seed: number
-  total: number
-}
-
-type LoadState =
-  | { status: 'loading' }
-  | { status: 'ready'; data: OrbitsResponse }
-  | { status: 'error'; message: string }
-
-const SAMPLE_SIZE = 2000
+// Render the full candidate set on desktop; a small sample on narrow screens so
+// a phone GPU isn't asked to draw ~34k instances. 40000 is above the ~34k total,
+// so on desktop it is effectively "all".
+const DESKTOP_SAMPLE = 40000
+const MOBILE_SAMPLE = 1000
 const SEED = 1
 
-export default function GlobePage() {
-  const [state, setState] = useState<LoadState>({ status: 'loading' })
+// Stable empty reference so the globe doesn't rebuild its instanced mesh on
+// every render while a (re)fetch is in flight.
+const NO_ORBITS: OrbitDatum[] = []
 
+// True at or above the md breakpoint (768px) — the same boundary the sidebar uses.
+function useIsDesktop(): boolean {
+  const [isDesktop, setIsDesktop] = useState(
+    () => typeof window !== 'undefined' && window.matchMedia('(min-width: 768px)').matches
+  )
   useEffect(() => {
-    const controller = new AbortController()
-    fetch(`/api/orbits?sample=${SAMPLE_SIZE}&seed=${SEED}`, {
-      signal: controller.signal,
-    })
-      .then(async (res) => {
-        if (!res.ok) throw new Error(`HTTP ${res.status}`)
-        const data = (await res.json()) as OrbitsResponse
-        setState({ status: 'ready', data })
-      })
-      .catch((err: unknown) => {
-        if (err instanceof DOMException && err.name === 'AbortError') return
-        setState({
-          status: 'error',
-          message: err instanceof Error ? err.message : 'Failed to load orbits',
-        })
-      })
-    return () => controller.abort()
+    const mql = window.matchMedia('(min-width: 768px)')
+    const onChange = () => setIsDesktop(mql.matches)
+    mql.addEventListener('change', onChange)
+    return () => mql.removeEventListener('change', onChange)
   }, [])
+  return isDesktop
+}
+
+export default function GlobePage() {
+  const navigate = useNavigate()
+  const isDesktop = useIsDesktop()
+  const [hovered, setHovered] = useState<OrbitDatum | null>(null)
+  const [query, setQuery] = useState<Omit<OrbitsQuery, 'sample'>>({
+    seed: SEED,
+    objectType: '',
+    orbitClass: '',
+  })
+
+  const state = useOrbits({
+    ...query,
+    sample: isDesktop ? DESKTOP_SAMPLE : MOBILE_SAMPLE,
+  })
+
+  const ready = state.status === 'ready' ? state.data : null
 
   return (
     <section className="relative h-screen w-full overflow-hidden bg-background">
-      {state.status === 'ready' && <OrbitGlobe orbits={state.data.orbits} />}
+      {/* Kept mounted across filter refetches so the Earth + camera persist;
+          only the instanced orbit mesh swaps when the data changes. */}
+      <OrbitGlobe
+        orbits={ready ? ready.orbits : NO_ORBITS}
+        onHover={setHovered}
+        onSelect={(o) => navigate(`/objects/${o.norad_id}`)}
+      />
 
       <div className="pointer-events-none absolute left-6 top-6 z-10 max-w-sm space-y-3">
         <div className="pointer-events-auto rounded-lg border border-border bg-surface/85 p-4 shadow-lg backdrop-blur">
@@ -54,8 +67,8 @@ export default function GlobePage() {
                 <span className="font-mono text-cyan">
                   {state.data.orbits.length.toLocaleString()}
                 </span>{' '}
-                of {state.data.total.toLocaleString()} in-orbit objects with
-                usable orbital data.
+                of {state.data.total.toLocaleString()} orbits matching the current
+                filters.
               </>
             ) : state.status === 'loading' ? (
               'Loading orbital data...'
@@ -63,7 +76,20 @@ export default function GlobePage() {
               <span className="text-danger">Couldn't load orbits: {state.message}</span>
             )}
           </p>
+          {!isDesktop && (
+            <p className="mt-2 text-xs text-muted">
+              Showing a reduced sample on small screens — open on a larger display
+              for the full set.
+            </p>
+          )}
         </div>
+
+        <GlobeFilters
+          objectType={query.objectType}
+          orbitClass={query.orbitClass}
+          onObjectTypeChange={(v) => setQuery((q) => ({ ...q, objectType: v }))}
+          onOrbitClassChange={(v) => setQuery((q) => ({ ...q, orbitClass: v }))}
+        />
 
         <div className="pointer-events-auto rounded-lg border border-border bg-surface/85 p-4 shadow-lg backdrop-blur">
           <p className="text-xs uppercase tracking-widest text-muted">Legend</p>
@@ -89,12 +115,26 @@ export default function GlobePage() {
 
         <div className="pointer-events-auto rounded-lg border border-warning/40 bg-warning/10 p-3 text-xs text-fg">
           <strong className="text-warning">Illustrative.</strong> Orbit
-          orientations (RAAN, argument of perigee) are randomized at render
-          time, and altitudes above Earth are exaggerated{' '}
+          orientations (RAAN, argument of perigee) are randomized at render time,
+          and altitudes above Earth are exaggerated{' '}
           <span className="font-mono">2.5×</span> for visual clarity. This shows{' '}
           <em>which orbits exist</em>, not where objects are right now.
         </div>
       </div>
+
+      {/* Hover chip — names the orbit currently under the cursor. */}
+      {hovered && (
+        <div className="pointer-events-none absolute bottom-6 left-1/2 z-10 -translate-x-1/2 rounded-lg border border-border bg-surface/90 px-4 py-2 text-sm shadow-lg backdrop-blur">
+          <span className="font-medium text-fg">
+            {hovered.object_name ?? 'Unnamed object'}
+          </span>
+          <span className="ml-2 font-mono text-xs text-muted">
+            NORAD {hovered.norad_id}
+            {hovered.orbit_class ? ` · ${hovered.orbit_class}` : ''}
+          </span>
+          <span className="ml-2 text-xs text-cyan">click to open →</span>
+        </div>
+      )}
     </section>
   )
 }
