@@ -11,8 +11,11 @@ type LoadState =
   | { status: 'ready'; data: Stats }
   | { status: 'error'; message: string }
 
+type Visitors = { daily: number; allTime: number }
+
 export default function Home() {
   const [state, setState] = useState<LoadState>({ status: 'loading' })
+  const [visitors, setVisitors] = useState<Visitors | null>(null)
 
   useEffect(() => {
     const controller = new AbortController()
@@ -28,6 +31,20 @@ export default function Home() {
           status: 'error',
           message: err instanceof Error ? err.message : 'Failed to load stats',
         })
+      })
+    return () => controller.abort()
+  }, [])
+
+  useEffect(() => {
+    const controller = new AbortController()
+    fetch('/api/visitors', { signal: controller.signal })
+      .then(async (res) => {
+        if (!res.ok) throw new Error(`HTTP ${res.status}`)
+        setVisitors((await res.json()) as Visitors)
+      })
+      .catch((err: unknown) => {
+        if (err instanceof DOMException && err.name === 'AbortError') return
+        setVisitors(null)
       })
     return () => controller.abort()
   }, [])
@@ -80,6 +97,16 @@ export default function Home() {
           label="Zombie"
           value={value('zombie')}
           hint="Non-operational but still orbiting"
+        />
+        <StatCard
+          label="Visitors today"
+          value={visitors?.daily ?? null}
+          hint="Unique by salted IP — no cookies"
+        />
+        <StatCard
+          label="Visitors all-time"
+          value={visitors?.allTime ?? null}
+          hint="Unique visitors since launch"
         />
       </div>
     </section>

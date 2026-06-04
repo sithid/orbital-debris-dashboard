@@ -4,6 +4,7 @@ import { getObjects, ObjectsQueryError } from "./routes/objects"
 import { getOrbitFacets } from "./routes/orbitFacets"
 import { getOrbits } from "./routes/orbits"
 import { getStats } from "./routes/stats"
+import { getVisitorCounts, recordVisit } from "./routes/visitors"
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -23,7 +24,7 @@ function json(body: unknown, init: ResponseInit = {}): Response {
 }
 
 export default {
-  async fetch(request, env, _ctx): Promise<Response> {
+  async fetch(request, env, ctx): Promise<Response> {
     const url = new URL(request.url)
 
     if (request.method === "OPTIONS" && url.pathname.startsWith("/api/")) {
@@ -36,6 +37,10 @@ export default {
 
     if (url.pathname === "/api/stats") {
       return json(await getStats(env))
+    }
+
+    if (url.pathname === "/api/visitors") {
+      return json(await getVisitorCounts(env))
     }
 
     if (url.pathname === "/api/orbits/facets") {
@@ -76,6 +81,15 @@ export default {
 
     if (url.pathname.startsWith("/api/")) {
       return json({ error: "Not found" }, { status: 404 })
+    }
+
+    // Count real page loads (HTML document navigations only — not assets or API
+    // calls). Fire-and-forget so it never blocks or breaks serving the SPA.
+    if (
+      request.method === "GET" &&
+      (request.headers.get("Accept") ?? "").includes("text/html")
+    ) {
+      ctx.waitUntil(recordVisit(env, request))
     }
 
     return env.ASSETS.fetch(request)

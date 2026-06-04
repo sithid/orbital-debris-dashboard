@@ -2,9 +2,9 @@
 
 _This file is the phased build plan for the project. It's the bridge between `docs/PRD.md` (what to build) + `docs/DESIGN.md` (what it looks like) and the actual code. Re-run the `build-plan` skill whenever reality has diverged from the plan._
 
-> **Status:** v1 + v2 shipped (Phases 0–9); Phase 10 (Atomic Design restructure) complete
+> **Status:** v1 + v2 shipped (Phases 0–10); Phase 11 (visitor counter) complete
 > **Last updated:** 2026-06-04
-> **Current phase:** Phase 10 complete — components reorganized into atoms/molecules/organisms/templates (behavior-neutral)
+> **Current phase:** Phase 11 complete — anonymous daily + all-time unique visitor counter (first sanctioned write path)
 
 > **Architecture note (2026-05-14):** The project was bootstrapped with `npm create cloudflare@latest` using the newer **Workers + Static Assets** model, not Pages Functions. File layout differs from this plan's original wording: API routes live in `worker/index.ts` (a single Worker entrypoint routing `/api/*`), not under `functions/api/*.ts`. Tests use `@cloudflare/vitest-pool-workers` (Vitest 4) with the `cloudflareTest` plugin. Wrangler config is `wrangler.jsonc`. The app lives in the nested directory `orbital-debris-dashboard/` (kept nested for now). Treat the original Pages-Functions file paths in later phases as historical — translate to Worker route handlers inside `worker/`.
 
@@ -391,6 +391,30 @@ That way each phase fits in a focused session — no full-repo loads, no thrashi
 
 ---
 
+### Phase 11 — Visitor counter (daily + all-time unique)
+
+**Goal:** Show unique visitors today + all-time on the Home page. The project's first write path.
+
+**Context to load:** `CLAUDE.md`, `worker/index.ts`, `worker/routes/stats.ts`, `src/pages/Home.tsx`, `schema.sql`.
+
+**Files this phase creates/modifies:** _(actuals, 2026-06-04)_
+- `schema_visitors.sql` (new) — `visitors(visitor_hash, day)` table, idempotent, **separate from `schema.sql`** so reseeds don't wipe it.
+- `worker/routes/visitors.ts` (new) — `recordVisit(env, request)` (salted SHA-256 of `CF-Connecting-IP`, `INSERT OR IGNORE` per (hash, day)) + `getVisitorCounts(env)` → `{ daily, allTime }`.
+- `worker/index.ts` — `GET /api/visitors` dispatch; `ctx.waitUntil(recordVisit(...))` on HTML-navigation GETs (Accept: text/html) before the ASSETS fallthrough.
+- `worker/env.d.ts` (new) — augments `Env` with `VISITOR_SALT?`.
+- `.dev.vars` (gitignored) local salt; prod via `wrangler secret put VISITOR_SALT`.
+- `src/pages/Home.tsx` — fetch `/api/visitors`, two `StatCard`s (today / all-time).
+- `worker/routes/visitors.test.ts` — dedup, distinct IPs, no-IP skip, old-day all-time, API shape.
+
+**Done-when:**
+- [x] `/api/visitors` returns `{ daily, allTime }`; HTML loads increment once per IP/day; assets/API don't.
+- [x] Home shows the two visitor cards.
+- [x] 82/82 tests, typecheck + build green. Local migration applied (prod migration + secret needed at deploy).
+
+**Session budget:** 1 session.
+
+---
+
 ## Decision log
 
 | Date | Phase touched | Change | Reason |
@@ -417,6 +441,7 @@ That way each phase fits in a focused session — no full-repo loads, no thrashi
 | 2026-06-04 | Phase 9 (v2) | `in_orbit` default differs by page: objects = all (`''` omits the param), globe = in-orbit (`'1'`), with an explicit `'all'` sentinel for the globe | The globe is about orbits that *currently exist*, so in-orbit is its sensible default; the table is a full catalog browser, so "all" is its default. The orbits API treats an absent `inOrbit` as in-orbit-only, so the globe needs a sentinel to request everything. |
 | 2026-06-04 | Phase 9 (v2) | Facets are scoped per page via `getFacets(env, baseWhere)`: globe = candidate set, objects = all objects | 129 owners / 74 countries app-wide vs 106 / 71 in-orbit. The table's dropdowns must cover owners/countries that exist only on decayed objects; the globe's must not offer values that would render nothing. |
 | 2026-06-04 | Phase 10 | Atomic Design restructure: full `atoms/molecules/organisms/templates` folders, plain Tailwind variants (no `cva`), no jsdom/RTL added | User chose the full Brad Frost layout. Tests only import `src/lib` + `src/hooks`, never components, so the moves can't break them — verified by `tsc -b` + build at each of 3 steps. Atoms are token-class wrappers; padding stays per-call-site to keep the refactor pixel-neutral. |
+| 2026-06-04 | Phase 11 | Visitor counter writes to D1 — first break from "v1 read-only" | User-requested analytics. Identify visitors by **salted SHA-256 of IP** (no cookies/PII, approximate by design), not a first-party cookie (avoids a consent surface) and not CF Web Analytics (not queryable in-app). `visitors` table lives in `schema_visitors.sql`, **not** `schema.sql`, so reseeding upstream data never wipes counts. Counting is `ctx.waitUntil` on `text/html` GETs only — fire-and-forget so it can't affect page serving. |
 
 ---
 

@@ -75,5 +75,5 @@ This is a learning project. When the human asks "explain this" or "quiz me on th
 - All API routes live under `/api/`. Don't add routes outside that prefix.
 - **Never load all rows client-side.** 68,727 objects require server-side pagination and filtering via D1 queries. Any approach that fetches the full table to the browser is wrong.
 - The source database is at `E:/repos/orbital-debris-assessment/data/clean/orbital_debris.db`. Do not modify it — it is the upstream pipeline output. Seed D1 from it; don't treat D1 as the source of truth for schema decisions.
-- v1 is read-only. No writes, no auth, no user accounts. If a feature requires any of those, it belongs in v2.
+- The dataset is read-only. No auth, no user accounts, and no writes to the orbital data. **Exception (Phase 11):** the `visitors` table records an anonymous visitor counter (salted SHA-256 of IP, no cookies/PII) — the one sanctioned write path. New write features still need explicit justification; don't write to the SATCAT/UCS tables.
 - The 3D globe visualization is explicitly deferred to v2. Do not add CesiumJS, Three.js, or any globe library in v1.
